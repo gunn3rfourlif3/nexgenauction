@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AuctionDetail from '../components/AuctionDetail';
+import BidConfirmationModal from '../components/BidConfirmationModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -84,6 +85,9 @@ const AuctionDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isWatched, setIsWatched] = useState(false);
+  const [showBidModal, setShowBidModal] = useState(false);
+  const [pendingBidAmount, setPendingBidAmount] = useState(0);
+  const [bidLoading, setBidLoading] = useState(false);
 
   // Fetch auction details
   useEffect(() => {
@@ -171,7 +175,7 @@ const AuctionDetailPage: React.FC = () => {
     }
   };
 
-  // Handle place bid
+  // Handle place bid - show confirmation modal
   const handlePlaceBid = async (auctionId: string, amount: number) => {
     if (!user) {
       showNotification('Please log in to place a bid', 'error');
@@ -179,19 +183,58 @@ const AuctionDetailPage: React.FC = () => {
       return;
     }
 
+    // Validate bid amount
+    if (!amount || amount <= 0) {
+      showNotification('Please enter a valid bid amount', 'error');
+      return;
+    }
+
+    if (auction && amount <= auction.currentBid) {
+      showNotification(`Bid must be higher than current bid of $${auction.currentBid.toLocaleString()}`, 'error');
+      return;
+    }
+
+    if (auction && amount < (auction.currentBid + auction.bidIncrement)) {
+      showNotification(`Minimum bid is $${(auction.currentBid + auction.bidIncrement).toLocaleString()}`, 'error');
+      return;
+    }
+
+    // Check if user is the seller
+    if (auction && user._id === auction.seller._id) {
+      showNotification('You cannot bid on your own auction', 'error');
+      return;
+    }
+
+    // Check auction status
+    if (auction && auction.status !== 'active') {
+      showNotification('This auction is not currently active', 'error');
+      return;
+    }
+
+    // Show confirmation modal
+    setPendingBidAmount(amount);
+    setShowBidModal(true);
+  };
+
+  // Confirm and place bid
+  const confirmPlaceBid = async () => {
+    if (!auction || !user) return;
+
+    setBidLoading(true);
     try {
-      const response = await fetch(`/api/auctions/${auctionId}/bid`, {
+      const response = await fetch(`/api/bids/${auction._id}/place`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ amount })
+        body: JSON.stringify({ amount: pendingBidAmount })
       });
 
       if (response.ok) {
         const updatedAuction = await response.json();
         setAuction(updatedAuction);
+        setShowBidModal(false);
         showNotification('Bid placed successfully!', 'success');
       } else {
         const errorData = await response.json();
@@ -203,6 +246,8 @@ const AuctionDetailPage: React.FC = () => {
         error instanceof Error ? error.message : 'Failed to place bid',
         'error'
       );
+    } finally {
+      setBidLoading(false);
     }
   };
 
@@ -325,6 +370,17 @@ const AuctionDetailPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Bid Confirmation Modal */}
+      <BidConfirmationModal
+        isOpen={showBidModal}
+        onClose={() => setShowBidModal(false)}
+        onConfirm={confirmPlaceBid}
+        bidAmount={pendingBidAmount}
+        currentBid={auction?.currentBid || 0}
+        auctionTitle={auction?.title || ''}
+        loading={bidLoading}
+      />
     </div>
   );
 };
