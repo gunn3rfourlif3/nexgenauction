@@ -1,6 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Clock, Eye, Tag } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 interface Auction {
   _id: string;
@@ -49,12 +51,15 @@ interface AuctionCardProps {
   currentUserId?: string;
 }
 
-const AuctionCard: React.FC<AuctionCardProps> = ({
-  auction,
-  onWatchlistToggle,
-  isWatched = false,
-  currentUserId
+const AuctionCard: React.FC<AuctionCardProps> = ({ 
+  auction, 
+  onWatchlistToggle, 
+  isWatched = false, 
+  currentUserId 
 }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
   const primaryImage = auction.images?.find(img => img.isPrimary) || auction.images?.[0];
   const timeLeft = auction.timeRemaining ? new Date(auction.timeRemaining) : null;
 
@@ -94,6 +99,26 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
     if (onWatchlistToggle) {
       onWatchlistToggle(auction._id, !isWatched);
     }
+  };
+
+  // Handle bid placement
+  const handlePlaceBid = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent Link navigation
+    e.stopPropagation();
+
+    if (!user) {
+      showNotification('Please log in to place a bid', 'error');
+      navigate('/login');
+      return;
+    }
+
+    if (auction.status !== 'active') {
+      showNotification('This auction is not currently active', 'warning');
+      return;
+    }
+
+    // Navigate to auction detail page for bidding
+    navigate(`/auctions/${auction._id}`);
   };
 
   return (
@@ -211,9 +236,19 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
 
           {/* Seller Info */}
           <div className="mt-3 pt-3 border-t border-gray-200">
-            <p className="text-sm text-gray-600">
-              Seller: <span className="font-medium">{auction.seller?.username}</span>
-            </p>
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                Seller: <span className="font-medium">{auction.seller?.username}</span>
+              </p>
+              {auction.status === 'active' && (
+                 <button
+                   onClick={handlePlaceBid}
+                   className="px-3 py-1 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 transition-colors duration-200"
+                 >
+                   View
+                 </button>
+               )}
+            </div>
           </div>
         </div>
       </Link>

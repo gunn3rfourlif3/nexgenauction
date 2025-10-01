@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { apiEndpoints } from '../services/api';
 
 const Auctions: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('ending-soon');
@@ -9,6 +15,18 @@ const Auctions: React.FC = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle bid placement
+  const handleBidNow = (auctionId: number) => {
+    if (!user) {
+      showNotification('Please log in to place a bid', 'error');
+      navigate('/login');
+      return;
+    }
+
+    // Navigate to auction detail page for bidding
+    navigate(`/auctions/${auctionId}`);
+  };
 
   const defaultCategories = [
     { value: 'all', label: 'All Categories' },
@@ -235,7 +253,10 @@ const Auctions: React.FC = () => {
                 </div>
 
                 <div className="flex space-x-2">
-                  <button className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 transition-colors duration-200">
+                  <button 
+                    onClick={() => handleBidNow(auction.id)}
+                    className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 transition-colors duration-200"
+                  >
                     Bid Now
                   </button>
                   <button className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200">

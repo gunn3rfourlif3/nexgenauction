@@ -1,10 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { apiEndpoints } from '../services/api';
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showNotification } = useNotification();
   const [apiStatus, setApiStatus] = useState<any>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  // Handle place bid for sample auctions
+  const handlePlaceBid = (auctionId: number) => {
+    if (!user) {
+      showNotification('Please log in to place a bid', 'error');
+      navigate('/login');
+      return;
+    }
+
+    // For sample auctions, redirect to auctions page
+    showNotification('This is a sample auction. Browse real auctions below!', 'info');
+    navigate('/auctions');
+  };
 
   useEffect(() => {
     const checkApiStatus = async () => {
@@ -145,7 +163,10 @@ const Home: React.FC = () => {
                     <span className="text-sm text-gray-500">Time Left</span>
                     <span className="text-sm font-medium text-secondary-600">2d 14h 30m</span>
                   </div>
-                  <button className="w-full bg-primary-600 text-white py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200">
+                  <button 
+                    onClick={() => handlePlaceBid(item)}
+                    className="w-full bg-primary-600 text-white py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
+                  >
                     Place Bid
                   </button>
                 </div>
