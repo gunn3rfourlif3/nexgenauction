@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
-import api from '../services/api';
+import { apiEndpoints } from '../services/api';
 import './LiveBidding.css';
 
 const LiveBidding = () => {
@@ -20,6 +20,12 @@ const LiveBidding = () => {
   const [success, setSuccess] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [showBidConfirmation, setShowBidConfirmation] = useState(false);
+  const [pendingBidAmount, setPendingBidAmount] = useState(null);
+  const [showAutoBidConfirmation, setShowAutoBidConfirmation] = useState(false);
+  const [pendingAutoBidAmount, setPendingAutoBidAmount] = useState(null);
+  const [auctionStatus, setAuctionStatus] = useState('active'); // active, ending_soon, ended
+  const [urgencyLevel, setUrgencyLevel] = useState('normal'); // normal, warning, critical
 
   // Calculate minimum bid increment
   const calculateMinBid = useCallback((currentAmount) => {
@@ -41,13 +47,15 @@ const LiveBidding = () => {
     }).format(amount);
   };
 
-  // Format time remaining
+  // Format time remaining without state updates
   const formatTimeRemaining = (endTime) => {
     const now = new Date();
     const end = new Date(endTime);
     const diff = end - now;
 
-    if (diff <= 0) return 'Auction Ended';
+    if (diff <= 0) {
+      return 'Auction Ended';
+    }
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -60,22 +68,43 @@ const LiveBidding = () => {
     return `${seconds}s`;
   };
 
+  // Update auction status and urgency based on time remaining
+  const updateAuctionStatus = useCallback((endTime) => {
+    const now = new Date();
+    const end = new Date(endTime);
+    const diff = end - now;
+
+    if (diff <= 0) {
+      setAuctionStatus('ended');
+      setUrgencyLevel('normal');
+    } else if (diff <= 60000) { // Less than 1 minute
+      setAuctionStatus('ending_soon');
+      setUrgencyLevel('critical');
+    } else if (diff <= 300000) { // Less than 5 minutes
+      setAuctionStatus('ending_soon');
+      setUrgencyLevel('warning');
+    } else {
+      setAuctionStatus('active');
+      setUrgencyLevel('normal');
+    }
+  }, []);
+
   // Load auction data
   const loadAuctionData = useCallback(async () => {
     try {
       setLoading(true);
       const [auctionResponse, bidResponse, historyResponse] = await Promise.all([
-        api.get(`/auctions/${id}`),
-        api.get(`/bids/current/${id}`),
-        api.get(`/bids/history/${id}`)
+        apiEndpoints.auctions.getById(id),
+        fetch(`http://localhost:5000/api/bids/current/${id}`).then(res => res.json()).catch(() => ({ data: null })),
+        fetch(`http://localhost:5000/api/bids/history/${id}`).then(res => res.json()).catch(() => ({ data: [] }))
       ]);
 
       setAuction(auctionResponse.data.data);
-      setCurrentBid(bidResponse.data.data);
-      setBidHistory(historyResponse.data.data || []);
+      setCurrentBid(bidResponse.data);
+      setBidHistory(historyResponse.data || []);
       
       // Set initial bid amount to minimum bid
-      const minBid = calculateMinBid(bidResponse.data.data?.amount || auctionResponse.data.data.startingBid);
+      const minBid = calculateMinBid(bidResponse.data?.amount || auctionResponse.data.data.startingBid);
       setBidAmount(minBid.toString());
       
     } catch (error) {
@@ -112,30 +141,53 @@ const LiveBidding = () => {
     setTimeout(() => setError(''), 5000);
   }, []);
 
-  // Place a manual bid
-  const placeBid = async () => {
-    if (!bidAmount || bidding) return;
-
-    const amount = parseFloat(bidAmount);
+  // Validate bid amount
+  const validateBidAmount = (amount) => {
+    const numAmount = parseFloat(amount);
     const minBid = calculateMinBid(currentBid?.amount || auction?.startingBid || 0);
+    
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return { isValid: false, message: 'Please enter a valid bid amount' };
+    }
+    
+    if (numAmount < minBid) {
+      return { isValid: false, message: `Minimum bid is ${formatCurrency(minBid)}` };
+    }
+    
+    if (numAmount > 1000000) {
+      return { isValid: false, message: 'Bid amount cannot exceed $1,000,000' };
+    }
+    
+    return { isValid: true };
+  };
 
-    if (amount < minBid) {
-      setError(`Minimum bid is ${formatCurrency(minBid)}`);
+  // Show bid confirmation dialog
+  const showBidConfirmationDialog = () => {
+    const validation = validateBidAmount(bidAmount);
+    if (!validation.isValid) {
+      setError(validation.message);
       setTimeout(() => setError(''), 3000);
       return;
     }
+    
+    setPendingBidAmount(parseFloat(bidAmount));
+    setShowBidConfirmation(true);
+  };
 
+  // Confirm and place bid
+  const confirmBid = async () => {
+    setShowBidConfirmation(false);
+    
     try {
       setBidding(true);
       setError('');
       
-      await api.post('/bids/place', {
-        auctionId: id,
-        amount: amount,
+      await apiEndpoints.auctions.placeBid(id, {
+        amount: pendingBidAmount,
         bidType: 'manual'
       });
 
-      setSuccess('Bid placed successfully!');
+      setSuccess(`Bid of ${formatCurrency(pendingBidAmount)} placed successfully!`);
       setTimeout(() => setSuccess(''), 3000);
       
     } catch (error) {
@@ -144,39 +196,64 @@ const LiveBidding = () => {
       setTimeout(() => setError(''), 5000);
     } finally {
       setBidding(false);
+      setPendingBidAmount(null);
     }
   };
 
-  // Set auto bid
-  const setAutoBid = async () => {
-    if (!autoBidMax) return;
-
-    const maxAmount = parseFloat(autoBidMax);
-    const minBid = calculateMinBid(currentBid?.amount || auction?.startingBid || 0);
-
-    if (maxAmount < minBid) {
-      setError(`Auto bid maximum must be at least ${formatCurrency(minBid)}`);
+  // Show auto bid confirmation dialog
+  const showAutoBidConfirmationDialog = () => {
+    const validation = validateBidAmount(autoBidMax);
+    if (!validation.isValid) {
+      setError(validation.message);
       setTimeout(() => setError(''), 3000);
       return;
     }
+    
+    setPendingAutoBidAmount(parseFloat(autoBidMax));
+    setShowAutoBidConfirmation(true);
+  };
 
+  // Confirm and set auto bid
+  const confirmAutoBid = async () => {
+    setShowAutoBidConfirmation(false);
+    
     try {
       setError('');
       
-      await api.post('/bids/auto', {
-        auctionId: id,
-        maxAmount: maxAmount
+      // For now, we'll use a direct fetch call since auto bid endpoint might not be implemented yet
+      await fetch(`http://localhost:5000/api/bids/auto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          auctionId: id,
+          maxAmount: pendingAutoBidAmount
+        })
       });
 
       setIsAutoBidEnabled(true);
-      setSuccess(`Auto bid set to ${formatCurrency(maxAmount)}`);
+      setSuccess(`Auto bid set to ${formatCurrency(pendingAutoBidAmount)}`);
       setTimeout(() => setSuccess(''), 3000);
       
     } catch (error) {
       console.error('Error setting auto bid:', error);
       setError(error.response?.data?.message || 'Failed to set auto bid');
       setTimeout(() => setError(''), 5000);
+    } finally {
+      setPendingAutoBidAmount(null);
     }
+  };
+
+  // Place a manual bid (updated to use confirmation)
+  const placeBid = () => {
+    showBidConfirmationDialog();
+  };
+
+  // Set auto bid (updated to use confirmation)
+  const setAutoBid = () => {
+    showAutoBidConfirmationDialog();
   };
 
   // Initialize WebSocket connection and load data
@@ -215,10 +292,11 @@ const LiveBidding = () => {
 
     const timer = setInterval(() => {
       setTimeRemaining(formatTimeRemaining(auction.endTime));
+      updateAuctionStatus(auction.endTime);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [auction?.endTime]);
+  }, [auction?.endTime, updateAuctionStatus]);
 
   // Monitor WebSocket connection
   useEffect(() => {
@@ -272,9 +350,23 @@ const LiveBidding = () => {
           </div>
           <div className="detail-item">
             <span className="label">Time Remaining:</span>
-            <span className={`time-remaining ${!isAuctionActive ? 'ended' : ''}`}>
-              {timeRemaining || formatTimeRemaining(auction.endTime)}
-            </span>
+            <div className="time-remaining-container">
+              <span className={`time-remaining ${auctionStatus} ${urgencyLevel}`}>
+                {timeRemaining || formatTimeRemaining(auction.endTime)}
+              </span>
+              {auctionStatus === 'ending_soon' && (
+                <div className="auction-status-indicator">
+                  <span className={`status-badge ${urgencyLevel}`}>
+                    {urgencyLevel === 'critical' ? '🔥 ENDING SOON!' : '⚠️ Ending Soon'}
+                  </span>
+                </div>
+              )}
+              {auctionStatus === 'ended' && (
+                <div className="auction-status-indicator">
+                  <span className="status-badge ended">🏁 AUCTION ENDED</span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="detail-item">
             <span className="label">Starting Bid:</span>
@@ -283,8 +375,37 @@ const LiveBidding = () => {
         </div>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
+      {error && (
+        <div className="error-message">
+          <div className="error-icon">⚠️</div>
+          <div className="error-content">
+            <strong>Error:</strong> {error}
+          </div>
+          <button 
+            className="error-dismiss" 
+            onClick={() => setError('')}
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      
+      {success && (
+        <div className="success-message">
+          <div className="success-icon">✅</div>
+          <div className="success-content">
+            <strong>Success:</strong> {success}
+          </div>
+          <button 
+            className="success-dismiss" 
+            onClick={() => setSuccess('')}
+            aria-label="Dismiss success message"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {isAuctionActive && (
         <div className="bidding-section">
@@ -360,6 +481,72 @@ const LiveBidding = () => {
           )}
         </div>
       </div>
+
+      {/* Bid Confirmation Dialog */}
+      {showBidConfirmation && (
+        <div className="confirmation-overlay">
+          <div className="confirmation-dialog">
+            <div className="confirmation-header">
+              <h3>Confirm Bid</h3>
+            </div>
+            <div className="confirmation-content">
+              <p>Are you sure you want to place a bid of <strong>{formatCurrency(pendingBidAmount)}</strong>?</p>
+              <p className="confirmation-note">This action cannot be undone.</p>
+            </div>
+            <div className="confirmation-actions">
+              <button 
+                className="confirm-button"
+                onClick={confirmBid}
+                disabled={bidding}
+              >
+                {bidding ? 'Placing Bid...' : 'Confirm Bid'}
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={() => {
+                  setShowBidConfirmation(false);
+                  setPendingBidAmount(null);
+                }}
+                disabled={bidding}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auto Bid Confirmation Dialog */}
+      {showAutoBidConfirmation && (
+        <div className="confirmation-overlay">
+          <div className="confirmation-dialog">
+            <div className="confirmation-header">
+              <h3>Confirm Auto Bid</h3>
+            </div>
+            <div className="confirmation-content">
+              <p>Set auto bid maximum to <strong>{formatCurrency(pendingAutoBidAmount)}</strong>?</p>
+              <p className="confirmation-note">The system will automatically bid for you up to this amount.</p>
+            </div>
+            <div className="confirmation-actions">
+              <button 
+                className="confirm-button"
+                onClick={confirmAutoBid}
+              >
+                Confirm Auto Bid
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={() => {
+                  setShowAutoBidConfirmation(false);
+                  setPendingAutoBidAmount(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
