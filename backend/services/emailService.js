@@ -9,7 +9,7 @@ class EmailService {
   createTransporter() {
     // In development mode, use ethereal email for testing
     if (process.env.NODE_ENV === 'development') {
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         host: 'smtp.ethereal.email',
         port: 587,
         auth: {
@@ -20,7 +20,7 @@ class EmailService {
     }
 
     // Production email configuration
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: process.env.EMAIL_PORT || 587,
       secure: false,

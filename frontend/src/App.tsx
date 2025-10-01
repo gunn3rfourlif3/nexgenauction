@@ -16,11 +16,13 @@ import Profile from './pages/Profile';
 
 // Import context
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <NotificationProvider>
+      <AuthProvider>
+        <Router>
         <div className="min-h-screen bg-gray-50 flex flex-col">
           <Header />
           <main className="flex-grow">
@@ -39,6 +41,7 @@ function App() {
         </div>
       </Router>
     </AuthProvider>
+  </NotificationProvider>
   );
 }
 

@@ -15,7 +15,7 @@ const register = async (req, res) => {
   try {
     // If running without database connection, simulate successful registration
     if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION === 'false') {
-      const { username, email, password, firstName, lastName, phone, dateOfBirth, address } = req.body;
+      const { username, email, password, firstName, lastName, phone, dateOfBirth } = req.body;
       
       // Simulate user creation
       const mockUser = {
@@ -26,7 +26,6 @@ const register = async (req, res) => {
         lastName,
         phone,
         dateOfBirth,
-        address,
         createdAt: new Date()
       };
 
@@ -36,12 +35,15 @@ const register = async (req, res) => {
       return res.status(201).json({
         success: true,
         message: 'User registered successfully (development mode)',
-        token,
-        user: mockUser
+        data: {
+          user: mockUser,
+          token,
+          emailSent: false
+        }
       });
     }
 
-    const { username, email, password, firstName, lastName, phone, dateOfBirth, address } = req.body;
+    const { username, email, password, firstName, lastName, phone, dateOfBirth } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({
@@ -65,8 +67,7 @@ const register = async (req, res) => {
       firstName,
       lastName,
       phone,
-      dateOfBirth,
-      address
+      dateOfBirth
     });
 
     // Generate verification token

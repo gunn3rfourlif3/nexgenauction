@@ -3,8 +3,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const session = require('express-session');
-const passport = require('./config/passport');
 require('dotenv').config();
+
+// Import passport configuration after dotenv is loaded
+const passport = require('./config/passport');
 
 // Import database connection
 const connectDB = require('./config/database');

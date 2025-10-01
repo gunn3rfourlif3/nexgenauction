@@ -11,13 +11,6 @@ interface RegisterFormData {
   lastName: string;
   phone: string;
   dateOfBirth: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
 }
 
 interface RegisterErrors {
@@ -29,13 +22,6 @@ interface RegisterErrors {
   lastName?: string;
   phone?: string;
   dateOfBirth?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-    country?: string;
-  };
   general?: string;
 }
 
@@ -50,14 +36,7 @@ const Register: React.FC = () => {
     firstName: '',
     lastName: '',
     phone: '',
-    dateOfBirth: '',
-    address: {
-      street: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: ''
-    }
+    dateOfBirth: ''
   });
   const [errors, setErrors] = useState<RegisterErrors>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -127,21 +106,10 @@ const Register: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
-    if (name.startsWith('address.')) {
-      const addressField = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        address: {
-          ...prev.address,
-          [addressField]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
 
     // Clear specific field error when user starts typing
     if (errors[name as keyof RegisterErrors]) {
@@ -384,87 +352,6 @@ const Register: React.FC = () => {
               {errors.dateOfBirth && (
                 <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>
               )}
-            </div>
-          </div>
-
-          {/* Address Section */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label htmlFor="address.street" className="block text-sm font-medium text-gray-700">
-                  Street Address
-                </label>
-                <input
-                  id="address.street"
-                  name="address.street"
-                  type="text"
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your street address"
-                  value={formData.address.street}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="address.city" className="block text-sm font-medium text-gray-700">
-                  City
-                </label>
-                <input
-                  id="address.city"
-                  name="address.city"
-                  type="text"
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your city"
-                  value={formData.address.city}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="address.state" className="block text-sm font-medium text-gray-700">
-                  State/Province
-                </label>
-                <input
-                  id="address.state"
-                  name="address.state"
-                  type="text"
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your state"
-                  value={formData.address.state}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="address.zipCode" className="block text-sm font-medium text-gray-700">
-                  ZIP/Postal Code
-                </label>
-                <input
-                  id="address.zipCode"
-                  name="address.zipCode"
-                  type="text"
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your ZIP code"
-                  value={formData.address.zipCode}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="address.country" className="block text-sm font-medium text-gray-700">
-                  Country
-                </label>
-                <input
-                  id="address.country"
-                  name="address.country"
-                  type="text"
-                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Enter your country"
-                  value={formData.address.country}
-                  onChange={handleInputChange}
-                />
-              </div>
             </div>
           </div>
 

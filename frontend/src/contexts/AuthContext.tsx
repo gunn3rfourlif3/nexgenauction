@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiEndpoints } from '../services/api';
+import { useNotification } from './NotificationContext';
 
 interface User {
   _id: string;
@@ -48,6 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showSuccess, showError } = useNotification();
 
   const isAuthenticated = !!user && !!token;
 
@@ -109,6 +111,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('token', userToken);
         localStorage.setItem('user', JSON.stringify(userData));
         
+        // Show success notification
+        showSuccess(`Welcome back, ${userData.firstName || userData.username}!`);
+        
         return { success: true };
       } else {
         return { success: false, message: response.data.message };
@@ -126,18 +131,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await apiEndpoints.auth.register(userData);
       
+      // Debug: Log the entire response structure
+      console.log('Registration response:', response);
+      console.log('Response data:', response.data);
+      console.log('Response data.data:', response.data.data);
+      
       if (response.data.success) {
-        const { user: newUser, token: userToken } = response.data.data;
-        
-        // Update state
-        setUser(newUser);
-        setToken(userToken);
-        
-        // Store in localStorage
-        localStorage.setItem('token', userToken);
-        localStorage.setItem('user', JSON.stringify(newUser));
-        
-        return { success: true };
+        // Check if response.data.data exists before destructuring
+        if (response.data.data && response.data.data.user && response.data.data.token) {
+          const { user: newUser, token: userToken } = response.data.data;
+          
+          // Update state
+          setUser(newUser);
+          setToken(userToken);
+          
+          // Store in localStorage
+          localStorage.setItem('token', userToken);
+          localStorage.setItem('user', JSON.stringify(newUser));
+          
+          // Show success notification
+          showSuccess(`Welcome to NexGen Auction, ${newUser.firstName || newUser.username}! Your account has been created successfully.`);
+          
+          return { success: true };
+        } else {
+          console.error('Invalid response structure:', response.data);
+          return { success: false, message: 'Invalid response from server' };
+        }
       } else {
         return { success: false, message: response.data.message };
       }
