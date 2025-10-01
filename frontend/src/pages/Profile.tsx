@@ -65,12 +65,19 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     if (user) {
+      // Format date for HTML date input (yyyy-MM-dd)
+      const formatDateForInput = (dateString: string) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+      };
+
       setProfileData({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         email: user.email || '',
         phone: user.phone || '',
-        dateOfBirth: user.dateOfBirth || '',
+        dateOfBirth: formatDateForInput(user.dateOfBirth || ''),
         address: {
           street: user.address?.street || '',
           city: user.address?.city || '',

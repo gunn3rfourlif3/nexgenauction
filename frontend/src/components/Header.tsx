@@ -55,6 +55,18 @@ const Header: React.FC = () => {
             >
               Auctions
             </Link>
+            {isAuthenticated && (
+              <Link
+                to="/dashboard"
+                className={`text-sm font-medium transition-colors duration-200 ${
+                  isActive('/dashboard') 
+                    ? 'text-primary-600 border-b-2 border-primary-600 pb-1' 
+                    : 'text-gray-700 hover:text-primary-600'
+                }`}
+              >
+                Dashboard
+              </Link>
+            )}
             <Link
               to="/about"
               className={`text-sm font-medium transition-colors duration-200 ${
