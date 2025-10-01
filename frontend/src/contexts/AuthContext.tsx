@@ -101,7 +101,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await apiEndpoints.auth.login({ email, password });
       
       if (response.data.success) {
-        const { user: userData, token: userToken } = response.data.data;
+        // Handle both development and production response structures
+        let userData, userToken;
+        
+        if (response.data.data) {
+          // Production format: { success, message, data: { user, token } }
+          ({ user: userData, token: userToken } = response.data.data);
+        } else {
+          // Development format: { success, message, token, user }
+          userData = response.data.user;
+          userToken = response.data.token;
+        }
         
         // Update state
         setUser(userData);

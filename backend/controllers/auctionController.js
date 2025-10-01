@@ -4,6 +4,65 @@ const User = require('../models/User');
 // Get all auctions with filtering and pagination
 const getAuctions = async (req, res) => {
   try {
+    // Check if we're in development mode without database connection
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      // Return mock auction data for development
+      const mockAuctions = [
+        {
+          _id: '507f1f77bcf86cd799439011',
+          title: 'Vintage Rolex Submariner',
+          description: 'A beautiful vintage Rolex Submariner in excellent condition.',
+          category: 'Watches',
+          subcategory: 'Luxury Watches',
+          startingPrice: 5000,
+          currentBid: 7500,
+          status: 'active',
+          condition: 'excellent',
+          featured: true,
+          images: ['/api/placeholder/400/300'],
+          endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          seller: { _id: '507f1f77bcf86cd799439012', username: 'watchcollector', firstName: 'John', lastName: 'Doe' },
+          views: 156,
+          tags: ['rolex', 'vintage', 'luxury'],
+          createdAt: new Date()
+        },
+        {
+          _id: '507f1f77bcf86cd799439013',
+          title: 'Antique Persian Rug',
+          description: 'Handwoven Persian rug from the 19th century.',
+          category: 'Antiques',
+          subcategory: 'Textiles',
+          startingPrice: 2000,
+          currentBid: 3200,
+          status: 'active',
+          condition: 'good',
+          featured: false,
+          images: ['/api/placeholder/400/300'],
+          endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+          seller: { _id: '507f1f77bcf86cd799439014', username: 'antiquedealer', firstName: 'Jane', lastName: 'Smith' },
+          views: 89,
+          tags: ['persian', 'antique', 'handwoven'],
+          createdAt: new Date()
+        }
+      ];
+
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 12;
+
+      return res.json({
+        success: true,
+        data: {
+          auctions: mockAuctions,
+          pagination: {
+            currentPage: page,
+            totalPages: 1,
+            totalItems: mockAuctions.length,
+            itemsPerPage: limit
+          }
+        }
+      });
+    }
+
     const {
       page = 1,
       limit = 12,
@@ -89,6 +148,57 @@ const getAuctions = async (req, res) => {
 const getAuctionById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Check if we're in development mode without database connection
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      // Return mock auction data for development
+      const mockAuction = {
+        _id: id,
+        title: 'Vintage Rolex Submariner',
+        description: 'A beautiful vintage Rolex Submariner in excellent condition. This timepiece represents the pinnacle of Swiss watchmaking craftsmanship.',
+        category: 'Watches',
+        subcategory: 'Luxury Watches',
+        startingPrice: 5000,
+        currentBid: 7500,
+        status: 'active',
+        condition: 'excellent',
+        featured: true,
+        images: [
+          '/api/placeholder/400/300',
+          '/api/placeholder/400/300',
+          '/api/placeholder/400/300'
+        ],
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        seller: { 
+          _id: '507f1f77bcf86cd799439012', 
+          username: 'watchcollector', 
+          firstName: 'John', 
+          lastName: 'Doe',
+          email: 'john@example.com',
+          phone: '+1234567890'
+        },
+        views: 156,
+        tags: ['rolex', 'vintage', 'luxury'],
+        bids: [
+          {
+            _id: '507f1f77bcf86cd799439015',
+            amount: 7500,
+            bidder: { _id: '507f1f77bcf86cd799439016', username: 'bidder1', firstName: 'Alice', lastName: 'Johnson' },
+            timestamp: new Date()
+          }
+        ],
+        conditionReport: {
+          overall: 'excellent',
+          details: 'Minor wear on bracelet, crystal is pristine'
+        },
+        createdAt: new Date()
+      };
+
+      return res.json({
+        success: true,
+        data: { auction: mockAuction }
+      });
+    }
 
     const auction = await Auction.findById(id)
       .populate('seller', 'username firstName lastName email phone')

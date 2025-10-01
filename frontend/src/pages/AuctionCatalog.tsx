@@ -151,12 +151,12 @@ const AuctionCatalog: React.FC = () => {
       }
 
       const data = await response.json();
-      setAuctions(data.auctions || []);
+      setAuctions(data.data?.auctions || []);
       setPagination(prev => ({
         ...prev,
-        currentPage: data.currentPage || 1,
-        totalPages: data.totalPages || 1,
-        totalItems: data.totalItems || 0
+        currentPage: data.data?.pagination?.currentPage || 1,
+        totalPages: data.data?.pagination?.totalPages || 1,
+        totalItems: data.data?.pagination?.totalItems || 0
       }));
     } catch (error) {
       console.error('Error fetching auctions:', error);
