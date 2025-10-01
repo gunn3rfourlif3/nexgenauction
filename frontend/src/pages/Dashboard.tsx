@@ -11,7 +11,9 @@ import {
   DollarSign,
   Eye,
   Clock,
-  Award
+  Award,
+  Shield,
+  Plus
 } from 'lucide-react';
 import { apiEndpoints } from '../services/api';
 
@@ -176,6 +178,7 @@ const Dashboard: React.FC = () => {
     { id: 'my-bids', label: 'My Bids', icon: DollarSign },
     { id: 'watchlist', label: 'Watchlist', icon: Heart },
     { id: 'profile', label: 'Profile', icon: User },
+    ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
   ];
 
   const StatCard = ({ title, value, icon: Icon, color = 'blue' }: any) => (
@@ -659,8 +662,142 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Admin Panel Tab */}
+        {activeTab === 'admin' && user?.role === 'admin' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <Shield className="w-6 h-6 text-blue-600" />
+                <h3 className="text-xl font-medium text-gray-900">Admin Panel</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Create Auction Card */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Plus className="w-5 h-5 text-green-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">Create Auction</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Create new auction listings with full administrative privileges.
+                  </p>
+                  <a
+                    href="/admin/create-auction"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create New Auction
+                  </a>
+                </div>
+
+                {/* Manage Auctions Card */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Gavel className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">Manage Auctions</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    View, edit, and manage all auction listings in the system.
+                  </p>
+                  <a
+                    href="/auctions"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    <Gavel className="w-4 h-4" />
+                    View All Auctions
+                  </a>
+                </div>
+
+                {/* User Management Card */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <User className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">User Management</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Manage user accounts, roles, and permissions.
+                  </p>
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm"
+                    disabled
+                  >
+                    <User className="w-4 h-4" />
+                    Coming Soon
+                  </button>
+                </div>
+
+                {/* System Stats Card */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <TrendingUp className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">System Statistics</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    View platform analytics and performance metrics.
+                  </p>
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors text-sm"
+                    disabled
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Coming Soon
+                  </button>
+                </div>
+
+                {/* Settings Card */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      <Settings className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">System Settings</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Configure platform settings and preferences.
+                  </p>
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
+                    disabled
+                  >
+                    <Settings className="w-4 h-4" />
+                    Coming Soon
+                  </button>
+                </div>
+
+                {/* Reports Card */}
+                <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <Award className="w-5 h-5 text-red-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">Reports</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Generate and view detailed system reports.
+                  </p>
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm"
+                    disabled
+                  >
+                    <Award className="w-4 h-4" />
+                    Coming Soon
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Placeholder content for other tabs */}
-        {activeTab !== 'overview' && (
+        {activeTab !== 'overview' && activeTab !== 'profile' && activeTab !== 'admin' && (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <h3 className="text-xl font-medium text-gray-900 mb-4">
               {tabs.find(tab => tab.id === activeTab)?.label}

@@ -17,6 +17,7 @@ import AuthCallback from './pages/AuthCallback';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import LiveBidding from './components/LiveBidding';
+import AdminCreateAuction from './pages/AdminCreateAuction';
 
 // Import context
 import { AuthProvider } from './contexts/AuthContext';
@@ -43,6 +44,7 @@ function App() {
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/admin/create-auction" element={<AdminCreateAuction />} />
             </Routes>
           </main>
           <Footer />

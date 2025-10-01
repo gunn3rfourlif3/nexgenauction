@@ -21,7 +21,7 @@ const {
 } = require('../controllers/auctionController');
 
 // Import middleware
-const { authenticate, optionalAuth, requireOwnershipOrAdmin } = require('../middleware/auth');
+const { authenticate, optionalAuth, requireOwnershipOrAdmin, requireAdmin } = require('../middleware/auth');
 const {
   validateAuctionCreation,
   validateBidPlacement,
@@ -39,6 +39,7 @@ router.use(authenticate);
 
 // Auction CRUD operations
 router.post('/', validateAuctionCreation, createAuction);
+router.post('/admin', requireAdmin, validateAuctionCreation, createAuction);
 router.put('/:id', validateObjectId('id'), updateAuction);
 router.delete('/:id', validateObjectId('id'), deleteAuction);
 
