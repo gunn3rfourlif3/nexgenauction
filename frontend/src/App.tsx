@@ -6,7 +6,9 @@ import './App.css';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
-import Auctions from './pages/Auctions';
+import AuctionCatalog from './pages/AuctionCatalog';
+import AuctionDetailPage from './pages/AuctionDetailPage';
+import Watchlist from './pages/Watchlist';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
@@ -28,7 +30,9 @@ function App() {
           <main className="flex-grow">
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/auctions" element={<Auctions />} />
+              <Route path="/auctions" element={<AuctionCatalog />} />
+              <Route path="/auctions/:id" element={<AuctionDetailPage />} />
+              <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/login" element={<Login />} />

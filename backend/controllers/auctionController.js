@@ -8,34 +8,45 @@ const getAuctions = async (req, res) => {
       page = 1,
       limit = 12,
       category,
+      subcategory,
       status,
       minPrice,
       maxPrice,
       search,
       sort = '-createdAt',
-      featured
+      featured,
+      condition
     } = req.query;
 
     // Build filter object
     const filter = {};
 
     if (category) filter.category = category;
+    if (subcategory) filter.subcategory = subcategory;
     if (status) filter.status = status;
+    if (condition) filter.condition = condition;
     if (featured !== undefined) filter.featured = featured === 'true';
 
-    // Price range filter
+    // Price range filter - check both starting price and current bid
     if (minPrice || maxPrice) {
-      filter.currentBid = {};
-      if (minPrice) filter.currentBid.$gte = parseFloat(minPrice);
-      if (maxPrice) filter.currentBid.$lte = parseFloat(maxPrice);
+      const priceFilter = {};
+      if (minPrice) priceFilter.$gte = parseFloat(minPrice);
+      if (maxPrice) priceFilter.$lte = parseFloat(maxPrice);
+      
+      filter.$or = [
+        { startingPrice: priceFilter },
+        { currentBid: priceFilter }
+      ];
     }
 
-    // Search filter
+    // Search filter - enhanced to include subcategory and condition report
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
+        { subcategory: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } },
+        { 'conditionReport.overall': { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -413,14 +424,14 @@ const addToWatchlist = async (req, res) => {
     }
 
     // Check if already in watchlist
-    if (auction.watchers.includes(req.user._id)) {
+    if (auction.watchedBy.includes(req.user._id)) {
       return res.status(400).json({
         success: false,
         message: 'Auction is already in your watchlist'
       });
     }
 
-    auction.watchers.push(req.user._id);
+    auction.watchedBy.push(req.user._id);
     await auction.save();
 
     res.json({
@@ -450,7 +461,7 @@ const removeFromWatchlist = async (req, res) => {
       });
     }
 
-    auction.watchers = auction.watchers.filter(
+    auction.watchedBy = auction.watchedBy.filter(
       watcher => watcher.toString() !== req.user._id.toString()
     );
     await auction.save();
@@ -468,6 +479,75 @@ const removeFromWatchlist = async (req, res) => {
   }
 };
 
+// Get user's watchlist
+const getUserWatchlist = async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const userId = req.user._id;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const auctions = await Auction.find({
+      watchedBy: userId
+    })
+      .populate('seller', 'username firstName lastName')
+      .populate('winner', 'username firstName lastName')
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Auction.countDocuments({ watchedBy: userId });
+
+    res.json({
+      success: true,
+      data: {
+        auctions,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / parseInt(limit)),
+          totalItems: total,
+          itemsPerPage: parseInt(limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get user watchlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching watchlist'
+    });
+  }
+};
+
+// Get categories with counts
+const getCategories = async (req, res) => {
+  try {
+    const categories = await Auction.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 },
+          subcategories: { $addToSet: '$subcategory' }
+        }
+      },
+      {
+        $sort: { count: -1 }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: { categories }
+    });
+  } catch (error) {
+    console.error('Get categories error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching categories'
+    });
+  }
+};
+
 module.exports = {
   getAuctions,
   getAuctionById,
@@ -478,5 +558,7 @@ module.exports = {
   getUserAuctions,
   getUserBids,
   addToWatchlist,
-  removeFromWatchlist
+  removeFromWatchlist,
+  getUserWatchlist,
+  getCategories
 };

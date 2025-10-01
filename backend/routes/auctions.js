@@ -12,7 +12,9 @@ const {
   getUserAuctions,
   getUserBids,
   addToWatchlist,
-  removeFromWatchlist
+  removeFromWatchlist,
+  getUserWatchlist,
+  getCategories
 } = require('../controllers/auctionController');
 
 // Import middleware
@@ -26,6 +28,7 @@ const {
 
 // Public routes
 router.get('/', validateAuctionQuery, getAuctions);
+router.get('/categories', getCategories);
 router.get('/:id', validateObjectId('id'), optionalAuth, getAuctionById);
 
 // Protected routes (require authentication)
@@ -57,5 +60,7 @@ router.get('/my/bidding', (req, res, next) => {
   req.params.userId = req.user._id.toString();
   getUserBids(req, res, next);
 });
+
+router.get('/my/watchlist', getUserWatchlist);
 
 module.exports = router;

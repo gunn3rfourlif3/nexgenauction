@@ -32,12 +32,39 @@ const auctionSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    enum: ['electronics', 'art', 'jewelry', 'vehicles', 'home', 'fashion', 'collectibles', 'other']
+    enum: ['electronics', 'art', 'jewelry', 'vehicles', 'home', 'fashion', 'collectibles', 'antiques', 'books', 'sports', 'music', 'other']
+  },
+  subcategory: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Subcategory cannot exceed 50 characters']
   },
   condition: {
     type: String,
     required: [true, 'Condition is required'],
     enum: ['new', 'like-new', 'good', 'fair', 'poor']
+  },
+  conditionReport: {
+    overall: {
+      type: String,
+      maxlength: [1000, 'Overall condition report cannot exceed 1000 characters']
+    },
+    defects: [{
+      type: String,
+      maxlength: [200, 'Defect description cannot exceed 200 characters']
+    }],
+    authenticity: {
+      verified: {
+        type: Boolean,
+        default: false
+      },
+      certificate: String,
+      verifiedBy: String
+    },
+    provenance: {
+      type: String,
+      maxlength: [500, 'Provenance cannot exceed 500 characters']
+    }
   },
   images: [{
     url: {
@@ -48,6 +75,11 @@ const auctionSchema = new mongoose.Schema({
     isPrimary: {
       type: Boolean,
       default: false
+    },
+    caption: String,
+    order: {
+      type: Number,
+      default: 0
     }
   }],
   seller: {
@@ -160,9 +192,13 @@ const auctionSchema = new mongoose.Schema({
 // Indexes for better query performance
 auctionSchema.index({ status: 1, endTime: 1 });
 auctionSchema.index({ category: 1, status: 1 });
+auctionSchema.index({ subcategory: 1, status: 1 });
 auctionSchema.index({ seller: 1 });
 auctionSchema.index({ title: 'text', description: 'text', tags: 'text' });
 auctionSchema.index({ featured: 1, status: 1 });
+auctionSchema.index({ startingPrice: 1, currentBid: 1 });
+auctionSchema.index({ endTime: 1, status: 1 });
+auctionSchema.index({ watchedBy: 1 });
 
 // Virtual for time remaining
 auctionSchema.virtual('timeRemaining').get(function() {
