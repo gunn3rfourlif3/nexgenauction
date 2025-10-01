@@ -12,6 +12,34 @@ const generateToken = (userId) => {
 // Register new user
 const register = async (req, res) => {
   try {
+    // If running without database connection, simulate successful registration
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION === 'false') {
+      const { username, email, password, firstName, lastName, phone, dateOfBirth, address } = req.body;
+      
+      // Simulate user creation
+      const mockUser = {
+        _id: 'mock_user_id_' + Date.now(),
+        username,
+        email,
+        firstName,
+        lastName,
+        phone,
+        dateOfBirth,
+        address,
+        createdAt: new Date()
+      };
+
+      // Generate token
+      const token = generateToken(mockUser._id);
+
+      return res.status(201).json({
+        success: true,
+        message: 'User registered successfully (development mode)',
+        token,
+        user: mockUser
+      });
+    }
+
     const { username, email, password, firstName, lastName, phone, dateOfBirth, address } = req.body;
 
     // Check if user already exists
@@ -70,6 +98,39 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // If running without database connection, simulate successful login
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION === 'false') {
+      // Simulate user login with test credentials
+      if (email === 'test@example.com' && password === 'Password123') {
+        const mockUser = {
+          _id: 'mock_user_id_login',
+          username: 'testuser',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          phone: '1234567890',
+          isActive: true,
+          lastLogin: new Date()
+        };
+
+        const token = generateToken(mockUser._id);
+
+        return res.json({
+          success: true,
+          message: 'Login successful (development mode)',
+          data: {
+            user: mockUser,
+            token
+          }
+        });
+      } else {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid email or password (use test@example.com / Password123 in dev mode)'
+        });
+      }
+    }
 
     // Find user by email
     const user = await User.findOne({ email }).select('+password');
