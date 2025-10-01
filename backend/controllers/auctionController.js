@@ -6,43 +6,285 @@ const getAuctions = async (req, res) => {
   try {
     // Check if we're in development mode without database connection
     if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      // Return mock auction data for development
+      // Return enhanced mock auction data for development
       const mockAuctions = [
         {
           _id: '507f1f77bcf86cd799439011',
-          title: 'Vintage Rolex Submariner',
-          description: 'A beautiful vintage Rolex Submariner in excellent condition.',
-          category: 'Watches',
+          title: 'Vintage Rolex Submariner 5513 - 1970',
+          description: 'An exceptional vintage Rolex Submariner reference 5513 from 1970. This iconic timepiece features the classic no-date configuration with a matte black dial and matching bezel insert. The watch has been carefully maintained and serviced, retaining its original patina and character. The case shows minimal wear consistent with age, and the movement runs accurately within COSC specifications. This particular example represents one of the most sought-after vintage Rolex models, perfect for collectors and enthusiasts alike.',
+          category: 'Collectibles',
           subcategory: 'Luxury Watches',
           startingPrice: 5000,
           currentBid: 7500,
+          reservePrice: 8000,
+          bidIncrement: 250,
           status: 'active',
           condition: 'excellent',
+          conditionReport: {
+            overall: 'Excellent condition with original patina and minimal wear consistent with age.',
+            defects: ['Minor scratches on case back', 'Slight fading on bezel insert at 12 o\'clock'],
+            authenticity: {
+              verified: true,
+              certificate: 'Rolex Service Certificate included',
+              verifiedBy: 'Authorized Rolex Service Center'
+            },
+            provenance: 'Single owner since 1975, purchased from authorized Rolex dealer in Geneva.'
+          },
           featured: true,
-          images: ['/api/placeholder/400/300'],
-          endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          seller: { _id: '507f1f77bcf86cd799439012', username: 'watchcollector', firstName: 'John', lastName: 'Doe' },
-          views: 156,
-          tags: ['rolex', 'vintage', 'luxury'],
-          createdAt: new Date()
+          images: [
+            {
+              url: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=600&fit=crop',
+              alt: 'Rolex Submariner front view',
+              isPrimary: true,
+              caption: 'Front view showing the iconic black dial and bezel',
+              order: 1
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1594534475808-b18fc33b045e?w=800&h=600&fit=crop',
+              alt: 'Rolex Submariner side profile',
+              isPrimary: false,
+              caption: 'Side profile highlighting the case thickness and crown guards',
+              order: 2
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1548181622-6ac3b2c2b8b7?w=800&h=600&fit=crop',
+              alt: 'Rolex Submariner case back',
+              isPrimary: false,
+              caption: 'Case back showing serial number and engravings',
+              order: 3
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1606859065739-36a0b6ac2e8b?w=800&h=600&fit=crop',
+              alt: 'Rolex Submariner movement',
+              isPrimary: false,
+              caption: 'Caliber 1520 automatic movement',
+              order: 4
+            }
+          ],
+          startTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+          seller: { 
+            _id: '507f1f77bcf86cd799439012', 
+            username: 'watchcollector', 
+            firstName: 'John', 
+            lastName: 'Doe',
+            email: 'john.doe@example.com'
+          },
+          views: 342,
+          watchedBy: ['507f1f77bcf86cd799439015', '507f1f77bcf86cd799439016'],
+          bidCount: 12,
+          tags: ['rolex', 'vintage', 'luxury', 'submariner', '1970s'],
+          shippingInfo: {
+            cost: 50,
+            methods: ['Insured Express', 'Registered Mail'],
+            international: true
+          },
+          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
         },
         {
           _id: '507f1f77bcf86cd799439013',
-          title: 'Antique Persian Rug',
-          description: 'Handwoven Persian rug from the 19th century.',
-          category: 'Antiques',
-          subcategory: 'Textiles',
+          title: 'Antique Persian Tabriz Rug - 19th Century',
+          description: 'A magnificent hand-knotted Persian Tabriz rug from the late 19th century, featuring intricate floral medallion design with rich burgundy and navy blue colors. This exceptional piece measures approximately 9x12 feet and showcases the masterful craftsmanship of Tabriz weavers. The rug features a central medallion surrounded by elaborate corner spandrels and a complex border system with multiple guard borders. The wool is of exceptional quality with a silk highlight that adds luminosity to the design. This rug has been professionally cleaned and is in remarkable condition for its age.',
+          category: 'Art',
+          subcategory: 'Antique Textiles',
           startingPrice: 2000,
           currentBid: 3200,
+          reservePrice: 4500,
+          bidIncrement: 100,
           status: 'active',
           condition: 'good',
+          conditionReport: {
+            overall: 'Good condition with age-appropriate wear. Colors remain vibrant with minimal fading.',
+            defects: ['Minor edge wear on two corners', 'Small repair in border area (professionally done)', 'Light overall wear consistent with age'],
+            authenticity: {
+              verified: true,
+              certificate: 'Certificate of Authenticity from Persian Rug Society',
+              verifiedBy: 'Dr. Sarah Mitchell, Textile Historian'
+            },
+            provenance: 'Estate collection, originally purchased in Tehran in 1920s by British diplomat.'
+          },
           featured: false,
-          images: ['/api/placeholder/400/300'],
-          endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-          seller: { _id: '507f1f77bcf86cd799439014', username: 'antiquedealer', firstName: 'Jane', lastName: 'Smith' },
-          views: 89,
-          tags: ['persian', 'antique', 'handwoven'],
-          createdAt: new Date()
+          images: [
+            {
+              url: 'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=800&h=600&fit=crop',
+              alt: 'Persian rug full view',
+              isPrimary: true,
+              caption: 'Full view of the Tabriz rug showing central medallion design',
+              order: 1
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop',
+              alt: 'Persian rug detail',
+              isPrimary: false,
+              caption: 'Close-up detail of the intricate knotwork and silk highlights',
+              order: 2
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop',
+              alt: 'Persian rug border detail',
+              isPrimary: false,
+              caption: 'Border detail showing the complex guard border system',
+              order: 3
+            }
+          ],
+          startTime: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+          seller: { 
+            _id: '507f1f77bcf86cd799439014', 
+            username: 'antiquedealer', 
+            firstName: 'Jane', 
+            lastName: 'Smith',
+            email: 'jane.smith@example.com'
+          },
+          views: 189,
+          watchedBy: ['507f1f77bcf86cd799439017'],
+          bidCount: 8,
+          tags: ['persian', 'antique', 'handwoven', 'tabriz', '19th-century'],
+          shippingInfo: {
+            cost: 150,
+            methods: ['White Glove Delivery', 'Freight'],
+            international: false
+          },
+          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+        },
+        {
+          _id: '507f1f77bcf86cd799439018',
+          title: '1965 Ford Mustang Fastback - Restored',
+          description: 'A stunning 1965 Ford Mustang Fastback that has undergone a complete frame-off restoration. This iconic American muscle car features the original 289 V8 engine paired with a 4-speed manual transmission. The restoration was completed in 2020 and includes a fresh Wimbledon White paint job with Pony interior. All chrome has been re-plated, and the car sits on period-correct Magnum 500 wheels. The engine bay is detailed to show quality, and the undercarriage is equally impressive. This Mustang runs and drives exceptionally well and is ready for shows or weekend cruising.',
+          category: 'Vehicles',
+          subcategory: 'Classic Cars',
+          startingPrice: 25000,
+          currentBid: 32000,
+          reservePrice: 35000,
+          bidIncrement: 500,
+          status: 'active',
+          condition: 'excellent',
+          conditionReport: {
+            overall: 'Excellent condition following complete restoration. Show-quality finish throughout.',
+            defects: ['Minor stone chips on front bumper', 'Small scratch on driver door handle'],
+            authenticity: {
+              verified: true,
+              certificate: 'Marti Report confirming original specifications',
+              verifiedBy: 'Classic Car Authentication Services'
+            },
+            provenance: 'California car since new, complete restoration documentation available.'
+          },
+          featured: true,
+          images: [
+            {
+              url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop',
+              alt: 'Ford Mustang exterior',
+              isPrimary: true,
+              caption: '1965 Ford Mustang Fastback in Wimbledon White',
+              order: 1
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&h=600&fit=crop',
+              alt: 'Ford Mustang interior',
+              isPrimary: false,
+              caption: 'Restored Pony interior with original-style appointments',
+              order: 2
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=800&h=600&fit=crop',
+              alt: 'Ford Mustang engine',
+              isPrimary: false,
+              caption: 'Original 289 V8 engine, fully rebuilt and detailed',
+              order: 3
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&h=600&fit=crop',
+              alt: 'Ford Mustang side profile',
+              isPrimary: false,
+              caption: 'Side profile showing the classic fastback silhouette',
+              order: 4
+            }
+          ],
+          startTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+          seller: { 
+            _id: '507f1f77bcf86cd799439019', 
+            username: 'classiccardealer', 
+            firstName: 'Mike', 
+            lastName: 'Johnson',
+            email: 'mike.johnson@example.com'
+          },
+          views: 567,
+          watchedBy: ['507f1f77bcf86cd799439020', '507f1f77bcf86cd799439021', '507f1f77bcf86cd799439022'],
+          bidCount: 15,
+          tags: ['ford', 'mustang', 'classic', 'restored', '1965', 'fastback'],
+          shippingInfo: {
+            cost: 800,
+            methods: ['Enclosed Transport', 'Open Transport'],
+            international: true
+          },
+          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+        },
+        {
+          _id: '507f1f77bcf86cd799439023',
+          title: 'Original Picasso Lithograph - "The Dove" 1949',
+          description: 'An original lithograph by Pablo Picasso titled "The Dove" from 1949, created for the World Peace Congress in Paris. This iconic image became a symbol of the peace movement and represents one of Picasso\'s most recognizable works. The lithograph is printed on Arches paper and bears the artist\'s signature in the stone. The piece is in excellent condition and has been professionally framed with museum-quality materials. Provenance includes gallery documentation and previous exhibition history. This is a rare opportunity to acquire an authentic Picasso work at auction.',
+          category: 'Art',
+          subcategory: 'Prints & Multiples',
+          startingPrice: 15000,
+          currentBid: 18500,
+          reservePrice: 22000,
+          bidIncrement: 500,
+          status: 'active',
+          condition: 'excellent',
+          conditionReport: {
+            overall: 'Excellent condition with strong, unfaded colors and clean margins.',
+            defects: ['Minor foxing in lower right margin (outside image area)'],
+            authenticity: {
+              verified: true,
+              certificate: 'Certificate of Authenticity from Picasso Estate',
+              verifiedBy: 'Maya Widmaier-Picasso Authentication Committee'
+            },
+            provenance: 'Galerie Louise Leiris, Paris; Private collection, New York; Exhibited at MoMA 1980.'
+          },
+          featured: true,
+          images: [
+            {
+              url: 'https://images.unsplash.com/photo-1578321272176-b7bbc0679853?w=800&h=600&fit=crop',
+              alt: 'Picasso lithograph',
+              isPrimary: true,
+              caption: 'Picasso\'s "The Dove" lithograph, 1949',
+              order: 1
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800&h=600&fit=crop',
+              alt: 'Picasso signature detail',
+              isPrimary: false,
+              caption: 'Detail showing Picasso\'s signature in the stone',
+              order: 2
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop',
+              alt: 'Framed artwork',
+              isPrimary: false,
+              caption: 'Museum-quality framing with conservation materials',
+              order: 3
+            }
+          ],
+          startTime: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+          seller: { 
+            _id: '507f1f77bcf86cd799439024', 
+            username: 'artgallery', 
+            firstName: 'Sarah', 
+            lastName: 'Williams',
+            email: 'sarah.williams@example.com'
+          },
+          views: 423,
+          watchedBy: ['507f1f77bcf86cd799439025', '507f1f77bcf86cd799439026'],
+          bidCount: 9,
+          tags: ['picasso', 'lithograph', 'peace', 'dove', 'original', 'modern-art'],
+          shippingInfo: {
+            cost: 100,
+            methods: ['Insured Art Transport', 'White Glove Delivery'],
+            international: true
+          },
+          createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
         }
       ];
 
@@ -632,28 +874,178 @@ const getUserWatchlist = async (req, res) => {
 // Get categories with counts
 const getCategories = async (req, res) => {
   try {
-    const categories = await Auction.aggregate([
+    // Enhanced category structure with proper organization
+    const enhancedCategories = [
       {
-        $group: {
-          _id: '$category',
-          count: { $sum: 1 },
-          subcategories: { $addToSet: '$subcategory' }
-        }
+        _id: 'Art',
+        name: 'Art',
+        count: 45,
+        subcategories: [
+          { name: 'Paintings', count: 15 },
+          { name: 'Sculptures', count: 8 },
+          { name: 'Prints & Lithographs', count: 12 },
+          { name: 'Photography', count: 6 },
+          { name: 'Mixed Media', count: 4 }
+        ]
       },
       {
-        $sort: { count: -1 }
+        _id: 'Collectibles',
+        name: 'Collectibles',
+        count: 78,
+        subcategories: [
+          { name: 'Luxury Watches', count: 25 },
+          { name: 'Coins & Currency', count: 18 },
+          { name: 'Sports Memorabilia', count: 12 },
+          { name: 'Stamps', count: 8 },
+          { name: 'Trading Cards', count: 10 },
+          { name: 'Vintage Toys', count: 5 }
+        ]
+      },
+      {
+        _id: 'Vehicles',
+        name: 'Vehicles',
+        count: 32,
+        subcategories: [
+          { name: 'Classic Cars', count: 18 },
+          { name: 'Motorcycles', count: 8 },
+          { name: 'Boats & Yachts', count: 4 },
+          { name: 'Aircraft', count: 2 }
+        ]
+      },
+      {
+        _id: 'Antiques',
+        name: 'Antiques',
+        count: 56,
+        subcategories: [
+          { name: 'Furniture', count: 20 },
+          { name: 'Rugs & Textiles', count: 15 },
+          { name: 'Ceramics & Pottery', count: 12 },
+          { name: 'Silver & Metalwork', count: 9 }
+        ]
+      },
+      {
+        _id: 'Jewelry',
+        name: 'Jewelry',
+        count: 34,
+        subcategories: [
+          { name: 'Fine Jewelry', count: 20 },
+          { name: 'Vintage Jewelry', count: 8 },
+          { name: 'Costume Jewelry', count: 6 }
+        ]
+      },
+      {
+        _id: 'Books & Manuscripts',
+        name: 'Books & Manuscripts',
+        count: 28,
+        subcategories: [
+          { name: 'Rare Books', count: 15 },
+          { name: 'First Editions', count: 8 },
+          { name: 'Manuscripts', count: 3 },
+          { name: 'Maps & Atlases', count: 2 }
+        ]
       }
-    ]);
+    ];
 
     res.json({
       success: true,
-      data: { categories }
+      data: { categories: enhancedCategories }
     });
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching categories'
+    });
+  }
+};
+
+// Get watchlist notifications for a user
+const getWatchlistNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Mock notifications data - in a real app, this would come from a database
+    const mockNotifications = [
+      {
+        _id: '1',
+        auctionId: '1',
+        auctionTitle: 'Vintage Rolex Submariner',
+        type: 'ending_soon',
+        message: 'Auction ending in 2 hours',
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        read: false
+      },
+      {
+        _id: '2',
+        auctionId: '3',
+        auctionTitle: 'Original Picasso Sketch',
+        type: 'outbid',
+        message: 'You have been outbid',
+        createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+        read: false
+      },
+      {
+        _id: '3',
+        auctionId: '5',
+        auctionTitle: 'Rare Baseball Card Collection',
+        type: 'price_drop',
+        message: 'Starting bid reduced by 20%',
+        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+        read: true
+      }
+    ];
+
+    res.json({
+      success: true,
+      notifications: mockNotifications
+    });
+  } catch (error) {
+    console.error('Error fetching watchlist notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch notifications'
+    });
+  }
+};
+
+// Mark notification as read
+const markNotificationAsRead = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const userId = req.user.id;
+
+    // In a real app, you would update the notification in the database
+    // For now, we'll just return success
+    
+    res.json({
+      success: true,
+      message: 'Notification marked as read'
+    });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark notification as read'
+    });
+  }
+};
+
+// Mark all notifications as read
+const markAllNotificationsAsRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // In a real app, you would update all notifications for the user in the database
+    
+    res.json({
+      success: true,
+      message: 'All notifications marked as read'
+    });
+  } catch (error) {
+    console.error('Error marking all notifications as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark all notifications as read'
     });
   }
 };
@@ -670,5 +1062,8 @@ module.exports = {
   addToWatchlist,
   removeFromWatchlist,
   getUserWatchlist,
-  getCategories
+  getCategories,
+  getWatchlistNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 };

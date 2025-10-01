@@ -209,10 +209,24 @@ const AuctionDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <AuctionDetail
-          auction={{} as Auction}
-          loading={true}
-        />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="animate-pulse">
+              <div className="h-96 bg-gray-300 rounded-lg mb-4"></div>
+              <div className="flex gap-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="w-20 h-20 bg-gray-300 rounded-lg"></div>
+                ))}
+              </div>
+            </div>
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-300 rounded"></div>
+              <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+              <div className="h-20 bg-gray-300 rounded"></div>
+              <div className="h-32 bg-gray-300 rounded"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

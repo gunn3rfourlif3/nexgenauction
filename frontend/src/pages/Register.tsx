@@ -135,8 +135,8 @@ const Register: React.FC = () => {
       const result = await register(registrationData);
       
       if (result.success) {
-        // Redirect to home page
-        navigate('/');
+        // Redirect to dashboard page
+        navigate('/dashboard');
       } else {
         setErrors({ general: result.message || 'Registration failed' });
       }

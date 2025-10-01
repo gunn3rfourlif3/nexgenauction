@@ -14,7 +14,10 @@ const {
   addToWatchlist,
   removeFromWatchlist,
   getUserWatchlist,
-  getCategories
+  getCategories,
+  getWatchlistNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 } = require('../controllers/auctionController');
 
 // Import middleware
@@ -62,5 +65,10 @@ router.get('/my/bidding', (req, res, next) => {
 });
 
 router.get('/my/watchlist', getUserWatchlist);
+
+// Watchlist notifications
+router.get('/my/notifications', getWatchlistNotifications);
+router.put('/notifications/:notificationId/read', markNotificationAsRead);
+router.put('/notifications/read-all', markAllNotificationsAsRead);
 
 module.exports = router;

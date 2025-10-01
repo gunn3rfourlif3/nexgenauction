@@ -34,7 +34,7 @@ const AuthCallback: React.FC = () => {
           if (response.ok) {
             const userData = await response.json();
             login(userData.data, token);
-            navigate('/');
+            navigate('/dashboard');
           } else {
             throw new Error('Failed to fetch user profile');
           }

@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard';
 
 // Import context
 import { AuthProvider } from './contexts/AuthContext';
@@ -39,6 +40,7 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
           </main>
           <Footer />

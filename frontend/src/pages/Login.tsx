@@ -72,8 +72,8 @@ const Login: React.FC = () => {
       const result = await login(formData.email, formData.password);
       
       if (result.success) {
-        // Redirect to home page
-        navigate('/');
+        // Redirect to dashboard page
+        navigate('/dashboard');
       } else {
         setErrors({ general: result.message || 'Login failed' });
       }

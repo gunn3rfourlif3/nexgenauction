@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import WatchlistNotifications from './WatchlistNotifications';
 
 const Header: React.FC = () => {
   const location = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const isActive = (path: string) => {
@@ -14,6 +16,10 @@ const Header: React.FC = () => {
   const handleLogout = () => {
     logout();
     setIsDropdownOpen(false);
+  };
+
+  const handleNotificationClick = (auctionId: string) => {
+    navigate(`/auctions/${auctionId}`);
   };
 
   return (
@@ -73,26 +79,47 @@ const Header: React.FC = () => {
 
           {/* Auth Section */}
           <div className="flex items-center space-x-4">
-            {isAuthenticated ? (
-              <div className="relative">
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-primary-600 transition-colors duration-200"
-                >
-                  <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center">
-                    {user?.firstName?.charAt(0) || user?.username?.charAt(0) || 'U'}
-                  </div>
-                  <span className="hidden sm:block">
-                    {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.username}
-                  </span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+            {isLoading ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-gray-600">Loading...</span>
+              </div>
+            ) : isAuthenticated ? (
+              <>
+                {/* Welcome Message */}
+                <div className="hidden sm:block text-sm text-gray-600">
+                  Welcome back, {user?.firstName || user?.username || 'User'}!
+                </div>
+                
+                {/* Watchlist Notifications */}
+                <WatchlistNotifications onNotificationClick={handleNotificationClick} />
+                
+                <div className="relative">
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-primary-600 transition-colors duration-200"
+                  >
+                    <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center">
+                      {user?.firstName?.charAt(0) || user?.username?.charAt(0) || 'U'}
+                    </div>
+                    <span className="hidden sm:block">
+                      {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.username}
+                    </span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
 
                 {/* Dropdown Menu */}
                 {isDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
+                    <Link
+                      to="/dashboard"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
                     <Link
                       to="/profile"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -123,7 +150,8 @@ const Header: React.FC = () => {
                     </button>
                   </div>
                 )}
-              </div>
+                </div>
+              </>
             ) : (
               <>
                 <Link

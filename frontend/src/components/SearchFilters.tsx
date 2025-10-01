@@ -42,18 +42,20 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const conditionOptions = [
-    { value: '', label: 'Any Condition' },
+    { value: '', label: 'All Conditions' },
     { value: 'new', label: 'New' },
     { value: 'like-new', label: 'Like New' },
+    { value: 'excellent', label: 'Excellent' },
     { value: 'good', label: 'Good' },
     { value: 'fair', label: 'Fair' },
     { value: 'poor', label: 'Poor' }
   ];
 
   const statusOptions = [
-    { value: '', label: 'All Auctions' },
-    { value: 'scheduled', label: 'Upcoming' },
-    { value: 'active', label: 'Live' },
+    { value: '', label: 'All Statuses' },
+    { value: 'scheduled', label: 'Scheduled' },
+    { value: 'active', label: 'Active' },
+    { value: 'ending-soon', label: 'Ending Soon' },
     { value: 'ended', label: 'Ended' }
   ];
 

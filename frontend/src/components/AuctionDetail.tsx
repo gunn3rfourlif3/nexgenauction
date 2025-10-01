@@ -100,8 +100,37 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
   currentUserId,
   loading = false
 }) => {
-  const [bidAmount, setBidAmount] = useState(auction.currentBid + auction.bidIncrement);
+  // Initialize hooks first (before any early returns)
+  const [bidAmount, setBidAmount] = useState(
+    auction && auction.currentBid && auction.bidIncrement 
+      ? auction.currentBid + auction.bidIncrement 
+      : 0
+  );
   const [activeTab, setActiveTab] = useState<'description' | 'condition' | 'bids' | 'shipping'>('description');
+
+  // Early return for loading state (after hooks)
+  if (loading || !auction || !auction._id) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="animate-pulse">
+            <div className="h-96 bg-gray-300 rounded-lg mb-4"></div>
+            <div className="flex gap-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="w-20 h-20 bg-gray-300 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-300 rounded"></div>
+            <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+            <div className="h-20 bg-gray-300 rounded"></div>
+            <div className="h-32 bg-gray-300 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const formatTimeRemaining = (timeRemaining: number) => {
     const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
@@ -145,8 +174,8 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
     }
   };
 
-  const canBid = auction.status === 'active' && currentUserId && currentUserId !== auction.seller._id;
-  const isOwner = currentUserId === auction.seller._id;
+  const canBid = auction.status === 'active' && currentUserId && currentUserId !== auction.seller?._id;
+  const isOwner = currentUserId === auction.seller?._id;
 
   if (loading) {
     return (
@@ -318,8 +347,8 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
               Seller Information
             </h3>
             <div className="space-y-2">
-              <p><span className="font-medium">Username:</span> {auction.seller.username}</p>
-              <p><span className="font-medium">Name:</span> {auction.seller.firstName} {auction.seller.lastName}</p>
+              <p><span className="font-medium">Username:</span> {auction.seller?.username}</p>
+              <p><span className="font-medium">Name:</span> {auction.seller?.firstName} {auction.seller?.lastName}</p>
             </div>
           </div>
         </div>

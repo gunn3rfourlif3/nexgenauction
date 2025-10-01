@@ -113,7 +113,7 @@ const AuctionCatalog: React.FC = () => {
       const response = await fetch('/api/auctions/categories');
       if (response.ok) {
         const data = await response.json();
-        setCategories(data);
+        setCategories(data.data.categories || []);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);

@@ -40,7 +40,7 @@ const Auctions: React.FC = () => {
 
         // Handle categories response
         if (categoriesResponse.status === 'fulfilled' && categoriesResponse.value.data.success) {
-          const apiCategories = categoriesResponse.value.data.data || [];
+          const apiCategories = categoriesResponse.value.data.data.categories || [];
           setCategories([{ value: 'all', label: 'All Categories' }, ...apiCategories]);
         } else {
           // Use default categories if API fails

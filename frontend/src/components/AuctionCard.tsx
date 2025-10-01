@@ -55,7 +55,7 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
   isWatched = false,
   currentUserId
 }) => {
-  const primaryImage = auction.images.find(img => img.isPrimary) || auction.images[0];
+  const primaryImage = auction.images?.find(img => img.isPrimary) || auction.images?.[0];
   const timeLeft = auction.timeRemaining ? new Date(auction.timeRemaining) : null;
 
   const formatTimeRemaining = (timeRemaining: number) => {
@@ -126,7 +126,7 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
           )}
 
           {/* Watchlist Button */}
-          {currentUserId && currentUserId !== auction.seller._id && (
+          {currentUserId && currentUserId !== auction.seller?._id && (
             <button
               onClick={handleWatchlistClick}
               className={`absolute bottom-2 right-2 p-2 rounded-full transition-colors duration-200 ${
@@ -212,7 +212,7 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
           {/* Seller Info */}
           <div className="mt-3 pt-3 border-t border-gray-200">
             <p className="text-sm text-gray-600">
-              Seller: <span className="font-medium">{auction.seller.username}</span>
+              Seller: <span className="font-medium">{auction.seller?.username}</span>
             </p>
           </div>
         </div>
