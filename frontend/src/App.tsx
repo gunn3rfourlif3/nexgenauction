@@ -16,6 +16,7 @@ import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
+import LiveBidding from './components/LiveBidding';
 
 // Import context
 import { AuthProvider } from './contexts/AuthContext';
@@ -33,6 +34,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/auctions" element={<AuctionCatalog />} />
               <Route path="/auctions/:id" element={<AuctionDetailPage />} />
+              <Route path="/auctions/:id/bid" element={<LiveBidding />} />
               <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />

@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const session = require('express-session');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 // Import passport configuration after dotenv is loaded
@@ -12,6 +14,14 @@ const passport = require('./config/passport');
 const connectDB = require('./config/database');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST']
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 
 // Connect to MongoDB
@@ -51,8 +61,33 @@ app.use(passport.session());
 // Import routes
 const apiRoutes = require('./routes');
 
+// Make io available to routes
+app.set('io', io);
+
 // Routes
 app.use('/api', apiRoutes);
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // Join auction room
+  socket.on('join-auction', (auctionId) => {
+    socket.join(`auction-${auctionId}`);
+    console.log(`User ${socket.id} joined auction ${auctionId}`);
+  });
+
+  // Leave auction room
+  socket.on('leave-auction', (auctionId) => {
+    socket.leave(`auction-${auctionId}`);
+    console.log(`User ${socket.id} left auction ${auctionId}`);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -119,7 +154,7 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

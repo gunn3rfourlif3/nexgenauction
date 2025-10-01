@@ -6,6 +6,7 @@ const authRoutes = require('./auth');
 const oauthRoutes = require('./oauth');
 const auctionRoutes = require('./auctions');
 const categoryRoutes = require('./categories');
+const bidRoutes = require('./bids');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -31,7 +32,8 @@ router.get('/status', (req, res) => {
         auth: '/api/auth',
         oauth: '/api/auth/oauth',
         auctions: '/api/auctions',
-        categories: '/api/categories'
+        categories: '/api/categories',
+        bids: '/api/bids'
       }
     }
   });
@@ -42,6 +44,7 @@ router.use('/auth', authRoutes);
 router.use('/auth/oauth', oauthRoutes);
 router.use('/auctions', auctionRoutes);
 router.use('/categories', categoryRoutes);
+router.use('/bids', bidRoutes);
 
 // 404 handler for API routes
 router.use((req, res) => {

@@ -11,11 +11,12 @@ const {
   logout,
   verifyEmail,
   requestPasswordReset,
-  resetPassword
+  resetPassword,
+  getAllUsers
 } = require('../controllers/authController');
 
 // Import middleware
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireAdmin } = require('../middleware/auth');
 const {
   validateUserRegistration,
   validateUserLogin,
@@ -132,5 +133,8 @@ router.put('/change-password', [
   
   handleValidationErrors
 ], changePassword);
+
+// Admin routes (require admin privileges)
+router.get('/users', requireAdmin, getAllUsers);
 
 module.exports = router;

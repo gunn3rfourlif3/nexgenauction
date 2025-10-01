@@ -108,11 +108,12 @@ const AuctionDetailPage: React.FC = () => {
         }
 
         const data = await response.json();
-        setAuction(data);
+        const auctionData = data.data?.auction || data; // Handle both nested and direct response formats
+        setAuction(auctionData);
 
         // Check if user has this auction in watchlist
-        if (user && data.watchedBy) {
-          setIsWatched(data.watchedBy.includes(user._id));
+        if (user && auctionData.watchedBy) {
+          setIsWatched(auctionData.watchedBy.includes(user._id));
         }
       } catch (error) {
         console.error('Error fetching auction:', error);

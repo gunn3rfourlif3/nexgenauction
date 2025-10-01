@@ -1,0 +1,11 @@
+{
+  "title": "Test Auction for Live Bidding",
+  "description": "Testing the real-time bidding system",
+  "startingBid": 100,
+  "bidIncrement": 10,
+  "endTime": "2025-01-02T12:00:00.000Z",
+  "category": "Electronics",
+  "condition": "New",
+  "images": ["https://via.placeholder.com/400x300"],
+  "seller": "675c5b7e123456789abcdef0"
+}

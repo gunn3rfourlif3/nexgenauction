@@ -488,6 +488,60 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// Get all users (admin only)
+const getAllUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    
+    // Build search query
+    const searchQuery = {};
+    if (search) {
+      searchQuery.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    // Get users with pagination
+    const users = await User.find(searchQuery)
+      .select('-password -verificationToken -resetPasswordToken')
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Get total count for pagination
+    const totalUsers = await User.countDocuments(searchQuery);
+    const totalPages = Math.ceil(totalUsers / parseInt(limit));
+
+    res.json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalUsers,
+          hasNextPage: parseInt(page) < totalPages,
+          hasPrevPage: parseInt(page) > 1
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching users'
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -497,5 +551,6 @@ module.exports = {
   logout,
   verifyEmail,
   requestPasswordReset,
-  resetPassword
+  resetPassword,
+  getAllUsers
 };
