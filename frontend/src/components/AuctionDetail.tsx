@@ -397,7 +397,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
           {activeTab === 'description' && (
             <div className="prose max-w-none">
               <p className="text-gray-700 whitespace-pre-wrap">{auction.description}</p>
-              {auction.tags && auction.tags.length > 0 && (
+              {auction.tags && Array.isArray(auction.tags) && auction.tags.length > 0 && (
                 <div className="mt-6">
                   <h4 className="text-lg font-medium mb-2">Tags</h4>
                   <div className="flex flex-wrap gap-2">
@@ -424,7 +424,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
                 </div>
               )}
 
-              {auction.conditionReport?.defects && auction.conditionReport.defects.length > 0 && (
+              {auction.conditionReport?.defects && Array.isArray(auction.conditionReport.defects) && auction.conditionReport.defects.length > 0 && (
                 <div>
                   <h4 className="text-lg font-medium mb-2 flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-orange-500" />
@@ -479,7 +479,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
           {activeTab === 'bids' && (
             <div>
               <h4 className="text-lg font-medium mb-4">Bidding History</h4>
-              {auction.bids && auction.bids.length > 0 ? (
+              {auction.bids && Array.isArray(auction.bids) && auction.bids.length > 0 ? (
                 <div className="space-y-3">
                   {auction.bids
                     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -515,7 +515,8 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
                   <div>
                     <p className="font-medium">Available Methods</p>
                     <ul className="list-disc list-inside text-gray-700">
-                      {auction.shippingInfo.methods.map((method, index) => (
+                      {auction.shippingInfo.methods && Array.isArray(auction.shippingInfo.methods) && 
+                       auction.shippingInfo.methods.map((method, index) => (
                         <li key={index}>{method}</li>
                       ))}
                     </ul>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { 
@@ -55,6 +56,7 @@ interface Auction {
 }
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { user, isAuthenticated, isLoading } = useAuth();
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('overview');
@@ -145,6 +147,17 @@ const Dashboard: React.FC = () => {
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
+  };
+
+  const handleCreateAuction = () => {
+    if (!isAuthenticated) {
+      showNotification('Please log in to create an auction', 'error');
+      navigate('/login');
+      return;
+    }
+
+    // Navigate to the general create auction page for all users
+    navigate('/create-auction');
   };
 
   if (isLoading) {
@@ -326,7 +339,10 @@ const Dashboard: React.FC = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-medium text-gray-900">My Auctions</h3>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={handleCreateAuction}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
                 Create New Auction
               </button>
             </div>

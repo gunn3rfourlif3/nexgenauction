@@ -73,12 +73,25 @@ export const apiEndpoints = {
 
   // Category endpoints
   categories: {
-    getAll: (params?: any) => api.get('/categories', { params }),
+    getAll: () => api.get('/categories'),
     getById: (id: string) => api.get(`/categories/${id}`),
     create: (data: any) => api.post('/categories', data),
     update: (id: string, data: any) => api.put(`/categories/${id}`, data),
     delete: (id: string) => api.delete(`/categories/${id}`),
     getTree: () => api.get('/categories/tree'),
+  },
+
+  // Account management endpoints
+  account: {
+    getBalance: () => api.get('/account/balance'),
+    getTransactions: (params?: { page?: number; limit?: number; type?: string; status?: string }) => 
+      api.get('/account/transactions', { params }),
+    getTransactionDetails: (transactionId: string) => api.get(`/account/transactions/${transactionId}`),
+    topUp: (data: { amount: number; paymentMethod?: string; currency?: string }) => 
+      api.post('/account/topup', data),
+    withdraw: (data: { amount: number; withdrawalMethod?: string }) => 
+      api.post('/account/withdraw', data),
+    getStats: () => api.get('/account/stats'),
   },
 };
 

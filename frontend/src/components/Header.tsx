@@ -67,26 +67,8 @@ const Header: React.FC = () => {
                 Dashboard
               </Link>
             )}
-            <Link
-              to="/about"
-              className={`text-sm font-medium transition-colors duration-200 ${
-                isActive('/about') 
-                  ? 'text-primary-600 border-b-2 border-primary-600 pb-1' 
-                  : 'text-gray-700 hover:text-primary-600'
-              }`}
-            >
-              About
-            </Link>
-            <Link
-              to="/contact"
-              className={`text-sm font-medium transition-colors duration-200 ${
-                isActive('/contact') 
-                  ? 'text-primary-600 border-b-2 border-primary-600 pb-1' 
-                  : 'text-gray-700 hover:text-primary-600'
-              }`}
-            >
-              Contact
-            </Link>
+
+
           </nav>
 
           {/* Auth Section */}

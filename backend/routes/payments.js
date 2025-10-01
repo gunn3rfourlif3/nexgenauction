@@ -170,7 +170,7 @@ router.get('/:paymentId/escrow-status', validatePaymentId, getEscrowStatus);
 router.get('/transactions/history', validateTransactionQuery, getTransactionHistory);
 
 // Admin-only routes
-router.use(requireRole('admin'));
+router.use(requireRole);
 
 // Admin payment management (future implementation)
 router.get('/admin/all', validateListQuery, async (req, res) => {

@@ -102,6 +102,23 @@ const userSchema = new mongoose.Schema({
   githubId: {
     type: String,
     sparse: true
+  },
+  // Account management fields
+  accountBalance: {
+    type: Number,
+    default: 0,
+    min: [0, 'Account balance cannot be negative']
+  },
+  currency: {
+    type: String,
+    default: 'USD',
+    enum: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
+  },
+  // Transaction history will be stored in a separate collection
+  // but we'll keep a reference to the last transaction for quick access
+  lastTransactionDate: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

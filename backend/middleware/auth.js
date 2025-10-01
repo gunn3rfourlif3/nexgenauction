@@ -111,7 +111,9 @@ const optionalAuth = async (req, res, next) => {
 
 module.exports = {
   authenticate,
+  authenticateToken: authenticate, // Alias for backward compatibility
   requireAdmin,
+  requireRole: requireAdmin, // Alias for backward compatibility
   requireOwnershipOrAdmin,
   optionalAuth
 };

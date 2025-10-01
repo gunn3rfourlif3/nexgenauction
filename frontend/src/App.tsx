@@ -18,6 +18,7 @@ import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import LiveBidding from './components/LiveBidding';
 import AdminCreateAuction from './pages/AdminCreateAuction';
+import CreateAuction from './pages/CreateAuction';
 import CheckoutTest from './pages/CheckoutTest';
 
 // Import context
@@ -45,6 +46,7 @@ function App() {
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/create-auction" element={<CreateAuction />} />
               <Route path="/admin/create-auction" element={<AdminCreateAuction />} />
               <Route path="/checkout-test" element={<CheckoutTest />} />
             </Routes>

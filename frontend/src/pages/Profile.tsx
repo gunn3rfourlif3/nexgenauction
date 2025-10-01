@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import AccountSection from '../components/Account/AccountSection';
 
 interface ProfileData {
   firstName: string;
@@ -211,6 +212,7 @@ const Profile: React.FC = () => {
   const tabs = [
     { id: 'profile', name: 'Profile Information', icon: '👤' },
     { id: 'security', name: 'Security', icon: '🔒' },
+    { id: 'account', name: 'Account Management', icon: '💰' },
     { id: 'accounts', name: 'Linked Accounts', icon: '🔗' }
   ];
 
@@ -476,6 +478,10 @@ const Profile: React.FC = () => {
                   </div>
                 </div>
               </form>
+            )}
+
+            {activeTab === 'account' && (
+              <AccountSection />
             )}
 
             {activeTab === 'accounts' && (

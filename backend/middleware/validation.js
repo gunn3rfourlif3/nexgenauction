@@ -223,6 +223,39 @@ const validateAuctionQuery = [
   ...validatePaginationQuery
 ];
 
+// Validate top-up request
+const validateTopUp = [
+  body('amount')
+    .isFloat({ min: 0.01, max: 10000 })
+    .withMessage('Amount must be between $0.01 and $10,000'),
+  
+  body('paymentMethod')
+    .optional()
+    .isIn(['credit_card', 'debit_card', 'paypal', 'bank_transfer', 'development'])
+    .withMessage('Invalid payment method'),
+  
+  body('currency')
+    .optional()
+    .isIn(['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'])
+    .withMessage('Invalid currency'),
+  
+  handleValidationErrors
+];
+
+// Validate withdrawal request
+const validateWithdrawal = [
+  body('amount')
+    .isFloat({ min: 0.01, max: 10000 })
+    .withMessage('Amount must be between $0.01 and $10,000'),
+  
+  body('withdrawalMethod')
+    .optional()
+    .isIn(['bank_transfer', 'paypal', 'development'])
+    .withMessage('Invalid withdrawal method'),
+  
+  handleValidationErrors
+];
+
 module.exports = {
   handleValidationErrors,
   validateUserRegistration,
@@ -232,5 +265,7 @@ module.exports = {
   validateCategoryCreation,
   validateObjectId,
   validatePaginationQuery,
-  validateAuctionQuery
+  validateAuctionQuery,
+  validateTopUp,
+  validateWithdrawal
 };

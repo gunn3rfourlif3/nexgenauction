@@ -64,7 +64,6 @@ const paymentSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  },
   
   // Payment method and gateway
   paymentMethod: {

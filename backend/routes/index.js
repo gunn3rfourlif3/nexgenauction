@@ -9,6 +9,7 @@ const categoryRoutes = require('./categories');
 const bidRoutes = require('./bids');
 const paymentRoutes = require('./payments');
 const currencyRoutes = require('./currencies');
+const accountRoutes = require('./account');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -34,10 +35,11 @@ router.get('/status', (req, res) => {
         auth: '/api/auth',
         oauth: '/api/auth/oauth',
         auctions: '/api/auctions',
-    categories: '/api/categories',
-    bids: '/api/bids',
-    payments: '/api/payments',
-    currencies: '/api/currencies'
+        categories: '/api/categories',
+        bids: '/api/bids',
+        payments: '/api/payments',
+        currencies: '/api/currencies',
+        account: '/api/account'
       }
     }
   });
@@ -51,6 +53,7 @@ router.use('/categories', categoryRoutes);
 router.use('/bids', bidRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/currencies', currencyRoutes);
+router.use('/account', accountRoutes);
 
 // 404 handler for API routes
 router.use((req, res) => {
