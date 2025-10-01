@@ -16,6 +16,10 @@ interface User {
     zipCode?: string;
     country?: string;
   };
+  profileImage?: string;
+  googleId?: string;
+  facebookId?: string;
+  githubId?: string;
   role: 'user' | 'admin';
   isActive: boolean;
   createdAt: string;

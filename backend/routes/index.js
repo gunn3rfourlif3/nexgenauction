@@ -3,6 +3,7 @@ const router = express.Router();
 
 // Import route modules
 const authRoutes = require('./auth');
+const oauthRoutes = require('./oauth');
 const auctionRoutes = require('./auctions');
 const categoryRoutes = require('./categories');
 
@@ -28,6 +29,7 @@ router.get('/status', (req, res) => {
       timestamp: new Date().toISOString(),
       endpoints: {
         auth: '/api/auth',
+        oauth: '/api/auth/oauth',
         auctions: '/api/auctions',
         categories: '/api/categories'
       }
@@ -35,8 +37,9 @@ router.get('/status', (req, res) => {
   });
 });
 
-// Mount route modules
+// Mount routes
 router.use('/auth', authRoutes);
+router.use('/auth/oauth', oauthRoutes);
 router.use('/auctions', auctionRoutes);
 router.use('/categories', categoryRoutes);
 

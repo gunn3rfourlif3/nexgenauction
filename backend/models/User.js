@@ -19,7 +19,10 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: function() {
+      // Password is not required for OAuth users
+      return !this.googleId && !this.facebookId && !this.githubId;
+    },
     minlength: [6, 'Password must be at least 6 characters long']
   },
   firstName: {
@@ -38,6 +41,15 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     match: [/^\+?[\d\s-()]+$/, 'Please enter a valid phone number']
+  },
+  dateOfBirth: {
+    type: Date,
+    validate: {
+      validator: function(value) {
+        return !value || value < new Date();
+      },
+      message: 'Date of birth must be in the past'
+    }
   },
   address: {
     street: String,
@@ -60,6 +72,10 @@ const userSchema = new mongoose.Schema({
     default: false
   },
   verificationToken: String,
+  verificationTokenExpire: {
+    type: Date,
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   createdAt: {
@@ -73,6 +89,19 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  // OAuth provider IDs
+  googleId: {
+    type: String,
+    sparse: true
+  },
+  facebookId: {
+    type: String,
+    sparse: true
+  },
+  githubId: {
+    type: String,
+    sparse: true
   }
 }, {
   timestamps: true
@@ -84,12 +113,13 @@ userSchema.index({ username: 1 });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
+  // Skip password hashing for OAuth users or if password is not modified
+  if (!this.isModified('password') || !this.password) {
     return next();
   }
   
   try {
-    const salt = await bcrypt.genSalt(12);
+    const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
@@ -100,6 +130,34 @@ userSchema.pre('save', async function(next) {
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Generate verification token
+userSchema.methods.generateVerificationToken = function() {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  this.verificationToken = token;
+  this.verificationTokenExpire = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  return token;
+};
+
+// Generate password reset token
+userSchema.methods.generatePasswordResetToken = function() {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  this.resetPasswordToken = token;
+  this.resetPasswordExpire = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  return token;
+};
+
+// Check if verification token is valid
+userSchema.methods.isVerificationTokenValid = function() {
+  return this.verificationToken && this.verificationTokenExpire > new Date();
+};
+
+// Check if password reset token is valid
+userSchema.methods.isPasswordResetTokenValid = function() {
+  return this.resetPasswordToken && this.resetPasswordExpire > new Date();
 };
 
 // Get full name virtual
@@ -113,6 +171,7 @@ userSchema.set('toJSON', {
   transform: function(doc, ret) {
     delete ret.password;
     delete ret.verificationToken;
+    delete ret.verificationTokenExpire;
     delete ret.resetPasswordToken;
     delete ret.resetPasswordExpire;
     return ret;

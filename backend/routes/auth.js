@@ -10,7 +10,8 @@ const {
   changePassword,
   logout,
   verifyEmail,
-  requestPasswordReset
+  requestPasswordReset,
+  resetPassword
 } = require('../controllers/authController');
 
 // Import middleware
@@ -38,6 +39,15 @@ router.post('/forgot-password', [
     .withMessage('Please provide a valid email address'),
   handleValidationErrors
 ], requestPasswordReset);
+
+router.post('/reset-password/:token', [
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+  handleValidationErrors
+], resetPassword);
 
 // Protected routes (require authentication)
 router.use(authenticate);
