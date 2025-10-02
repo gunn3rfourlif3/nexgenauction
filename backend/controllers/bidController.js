@@ -29,8 +29,67 @@ const placeBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { amount, bidType = 'manual', maxAutoBid } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id || req.user.id;
     const io = req.app.get('io');
+
+    // Development-mode fallback: bypass DB and use in-memory store
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      const { getAuction, placeBid: devPlaceBid } = require('../services/devMockStore');
+      const auction = getAuction(auctionId);
+
+      // Basic validations mirroring production logic
+      if (!auction) {
+        return res.status(404).json({ success: false, message: 'Auction not found' });
+      }
+      if (auction.status !== 'active') {
+        return res.status(400).json({ success: false, message: 'Auction is not active' });
+      }
+      if (new Date() > new Date(auction.endTime || auction.endDate)) {
+        return res.status(400).json({ success: false, message: 'Auction has ended' });
+      }
+      if (auction.seller && (auction.seller._id === userId || auction.seller === userId)) {
+        return res.status(400).json({ success: false, message: 'You cannot bid on your own auction' });
+      }
+
+      const currentAmount = auction.currentBid ?? auction.startingPrice;
+      const minimumIncrement = calculateMinimumIncrement(currentAmount);
+      const minimumBid = currentAmount + minimumIncrement;
+      if (amount < minimumBid) {
+        return res.status(400).json({ success: false, message: `Minimum bid is $${minimumBid.toFixed(2)} (current: $${currentAmount.toFixed(2)} + $${minimumIncrement.toFixed(2)} increment)` });
+      }
+
+      // Place bid in dev store
+      const bidderInfo = { _id: userId, username: req.user.username, firstName: req.user.firstName, lastName: req.user.lastName };
+      const result = devPlaceBid(auctionId, bidderInfo, amount, bidType, maxAutoBid);
+
+      // Emit real-time update to all users in the auction room
+      io && io.to(`auction-${auctionId}`).emit('new-bid', {
+        bid: {
+          _id: result.bid._id,
+          amount: result.bid.amount,
+          bidder: {
+            username: result.bid.bidder.username,
+            firstName: result.bid.bidder.firstName,
+            lastName: result.bid.bidder.lastName
+          },
+          bidTime: result.bid.bidTime,
+          bidType: result.bid.bidType
+        },
+        auction: {
+          currentPrice: result.auction.currentBid,
+          totalBids: result.auction.bidCount
+        }
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Bid placed successfully',
+        data: {
+          bid: result.bid,
+          minimumNextBid: amount + calculateMinimumIncrement(amount)
+        }
+      });
+    }
 
     // Validate auction exists and is active
     const auction = await Auction.findById(auctionId);
@@ -321,7 +380,47 @@ const setAutoBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { maxAmount } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id || req.user.id;
+
+    // Development-mode fallback: bypass DB and use in-memory store
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      const { getAuction, placeBid: devPlaceBid } = require('../services/devMockStore');
+      const auction = getAuction(auctionId);
+
+      // Basic validations mirroring production logic
+      if (!auction || auction.status !== 'active') {
+        return res.status(400).json({
+          success: false,
+          message: 'Auction is not available for bidding'
+        });
+      }
+
+      // Check if user is the seller
+      if (auction.seller && (auction.seller._id === userId || auction.seller === userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'You cannot set auto-bid on your own auction'
+        });
+      }
+
+      const currentPrice = auction.currentBid ?? auction.startingPrice;
+      if (maxAmount <= currentPrice) {
+        return res.status(400).json({
+          success: false,
+          message: `Auto-bid maximum must be higher than current price ($${Number(currentPrice).toFixed(2)})`
+        });
+      }
+
+      // Record auto-bid in dev store without changing current price
+      const bidderInfo = { _id: userId, username: req.user.username, firstName: req.user.firstName, lastName: req.user.lastName };
+      devPlaceBid(auctionId, bidderInfo, currentPrice, 'auto', maxAmount);
+
+      return res.json({
+        success: true,
+        message: 'Auto-bid set successfully',
+        data: { maxAmount }
+      });
+    }
 
     // Validate auction
     const auction = await Auction.findById(auctionId);

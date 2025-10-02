@@ -13,6 +13,23 @@ const authenticate = async (req, res, next) => {
       });
     }
 
+    // Development mode: allow authentication without DB connection
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Create a minimal mock user object
+      req.user = {
+        _id: decoded.id,
+        id: decoded.id,
+        username: 'devuser',
+        firstName: 'Dev',
+        lastName: 'User',
+        email: 'devuser@example.com',
+        role: 'admin',
+        isActive: true
+      };
+      return next();
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select('-password');
     
@@ -95,10 +112,23 @@ const optionalAuth = async (req, res, next) => {
     
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select('-password');
-      
-      if (user && user.isActive) {
-        req.user = user;
+      // Development mode: attach mock user without DB
+      if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+        req.user = {
+          _id: decoded.id,
+          id: decoded.id,
+          username: 'devuser',
+          firstName: 'Dev',
+          lastName: 'User',
+          email: 'devuser@example.com',
+          role: 'admin',
+          isActive: true
+        };
+      } else {
+        const user = await User.findById(decoded.id).select('-password');
+        if (user && user.isActive) {
+          req.user = user;
+        }
       }
     }
     

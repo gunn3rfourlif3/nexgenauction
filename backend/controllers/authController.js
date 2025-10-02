@@ -14,7 +14,7 @@ const generateToken = (userId) => {
 const register = async (req, res) => {
   try {
     // If running without database connection, simulate successful registration
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION === 'false') {
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
       const { username, email, password, firstName, lastName, phone, dateOfBirth } = req.body;
       
       // Simulate user creation
@@ -116,7 +116,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   try {
     // If running without database connection, simulate successful login
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION === 'false') {
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
       const { email, password } = req.body;
       
       // Simulate user login
@@ -193,6 +193,19 @@ const login = async (req, res) => {
 // Get user profile
 const getProfile = async (req, res) => {
   try {
+    // In development without a forced DB connection, return the attached mock user
+    const nodeEnv = process.env.NODE_ENV;
+    const isDevEnv = (nodeEnv || 'development') !== 'production';
+    const forceDb = process.env.FORCE_DB_CONNECTION;
+    if (isDevEnv && forceDb !== 'true') {
+      const devUser = req.user;
+      console.log('getProfile dev fallback. NODE_ENV=', nodeEnv, 'isDevEnv=', isDevEnv, 'FORCE_DB_CONNECTION=', forceDb, 'req.user=', devUser);
+      return res.json({
+        success: true,
+        data: { user: devUser }
+      });
+    }
+
     const user = await User.findById(req.user.id);
     
     if (!user) {
@@ -208,6 +221,7 @@ const getProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Get profile error:', error);
+    console.error('Env details -> NODE_ENV:', process.env.NODE_ENV, 'FORCE_DB_CONNECTION:', process.env.FORCE_DB_CONNECTION);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching profile'

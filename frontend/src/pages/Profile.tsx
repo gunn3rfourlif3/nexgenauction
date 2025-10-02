@@ -103,7 +103,7 @@ const Profile: React.FC = () => {
     setMessage(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/profile', {
+      const response = await fetch('/api/auth/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +138,7 @@ const Profile: React.FC = () => {
     setMessage(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/change-password', {
+      const response = await fetch('/api/auth/change-password', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ const Profile: React.FC = () => {
 
   const handleLinkAccount = async (provider: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/oauth/link/${provider}`, {
+      const response = await fetch(`/api/auth/oauth/link/${provider}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -189,7 +189,7 @@ const Profile: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/oauth/unlink/${provider}`, {
+      const response = await fetch(`/api/auth/oauth/unlink/${provider}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

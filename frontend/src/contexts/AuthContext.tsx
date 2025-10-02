@@ -85,8 +85,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           await apiEndpoints.auth.profile();
           // Token is valid, user data is already set
         } catch (error) {
-          console.error('Token verification failed:', error);
-          logout();
+          // Only logout on clear auth failures
+          const status = (error as any)?.response?.status;
+          const message = (error as any)?.response?.data?.message || '';
+          const isTokenError = /Token expired|Invalid token|Access denied\. No token provided|User not found|Account is deactivated/i.test(message);
+          if (status === 401 && isTokenError) {
+            console.error('Token invalid or expired, logging out.');
+            logout();
+          } else {
+            console.warn('Profile check failed but not an auth error; keeping session.');
+          }
         }
       }
     };
@@ -194,6 +202,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout API call failed:', error);
     }
+
+    // Redirect to home page after sign out
+    // Using hard redirect to ensure app state resets cleanly
+    window.location.href = '/';
   };
 
   const updateUser = (userData: Partial<User>) => {
@@ -215,9 +227,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(userData));
       }
     } catch (error) {
-      console.error('Failed to refresh user data:', error);
-      // If profile fetch fails, user might be logged out
-      logout();
+      // Only logout if clearly unauthorized
+      const status = (error as any)?.response?.status;
+      const message = (error as any)?.response?.data?.message || '';
+      const isTokenError = /Token expired|Invalid token|Access denied\. No token provided|User not found|Account is deactivated/i.test(message);
+      if (status === 401 && isTokenError) {
+        console.error('Failed to refresh user: auth error, logging out.');
+        logout();
+      } else {
+        console.warn('Failed to refresh user data; retaining current session.');
+      }
     }
   };
 

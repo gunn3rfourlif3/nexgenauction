@@ -46,9 +46,11 @@ router.delete('/:id', validateObjectId('id'), deleteAuction);
 // Bidding
 router.post('/:id/bid', validateObjectId('id'), validateBidPlacement, placeBid);
 
-// Watchlist
+// Watchlist (provide aliases for /watch and /watchlist for frontend compatibility)
 router.post('/:id/watch', validateObjectId('id'), addToWatchlist);
 router.delete('/:id/watch', validateObjectId('id'), removeFromWatchlist);
+router.post('/:id/watchlist', validateObjectId('id'), addToWatchlist);
+router.delete('/:id/watchlist', validateObjectId('id'), removeFromWatchlist);
 
 // User-specific auction routes
 router.get('/user/:userId/selling', validateObjectId('userId'), requireOwnershipOrAdmin('userId'), getUserAuctions);

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import './CheckoutFlow.css';
 
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_demo');
+// Note: We initialize Stripe within the component and guard against failures.
 
 interface CheckoutFlowProps {
   auction: {
@@ -43,8 +42,66 @@ interface ShippingAddress {
 }
 
 const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ auction, onSuccess, onCancel, onError }) => {
+  const [stripeInstance, setStripeInstance] = useState<Stripe | null>(null);
+  const [stripeError, setStripeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const key = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY;
+    if (!key || !/^pk_/.test(key)) {
+      console.warn('Stripe publishable key missing or invalid. Payments may be disabled.');
+    }
+
+    // Attempt to load Stripe.js and capture failures
+    loadStripe(key || 'pk_test_demo')
+      .then((instance) => {
+        if (!instance) {
+          setStripeError('Stripe.js failed to initialize.');
+          onError && onError('Stripe.js failed to initialize.');
+        } else {
+          setStripeInstance(instance);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load Stripe.js:', err);
+        setStripeError('Failed to load Stripe.js. Please check network or CSP settings.');
+        onError && onError('Failed to load Stripe.js');
+      });
+  }, [onError]);
+
+  if (stripeError) {
+    return (
+      <div className="checkout-flow">
+        <div className="checkout-content">
+          <div className="checkout-step">
+            <h2>Payment Unavailable</h2>
+            <p>{stripeError}</p>
+            <div className="step-actions">
+              <button onClick={onCancel} className="btn-secondary">Back</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stripeInstance) {
+    return (
+      <div className="checkout-flow">
+        <div className="checkout-content">
+          <div className="checkout-step processing-step">
+            <div className="processing-animation">
+              <div className="spinner"></div>
+            </div>
+            <h2>Initializing Payments</h2>
+            <p>Loading secure Stripe components…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={stripeInstance}>
       <CheckoutFlowContent 
         auction={auction}
         onSuccess={onSuccess}

@@ -204,7 +204,7 @@ const Login: React.FC = () => {
             <div className="mt-6 grid grid-cols-3 gap-3">
               <button
                 type="button"
-                onClick={() => window.location.href = 'http://localhost:5000/api/auth/oauth/google'}
+                onClick={() => window.location.href = '/api/auth/oauth/google'}
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -218,7 +218,7 @@ const Login: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => window.location.href = 'http://localhost:5000/api/auth/oauth/facebook'}
+                onClick={() => window.location.href = '/api/auth/oauth/facebook'}
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
               >
                 <svg className="h-5 w-5" fill="#1877F2" viewBox="0 0 24 24">
@@ -229,7 +229,7 @@ const Login: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => window.location.href = 'http://localhost:5000/api/auth/oauth/github'}
+                onClick={() => window.location.href = '/api/auth/oauth/github'}
                 className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
               >
                 <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">

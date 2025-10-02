@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AuctionDetail from '../components/AuctionDetail';
+import { apiEndpoints } from '../services/api';
 import BidConfirmationModal from '../components/BidConfirmationModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -102,26 +103,44 @@ const AuctionDetailPage: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/auctions/${id}`);
-        
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error('Auction not found');
-          }
-          throw new Error('Failed to fetch auction details');
+        const { data: res } = await apiEndpoints.auctions.getById(id);
+        let auctionData: any = (res && res.data && res.data.auction) ? res.data.auction : res; // Handle both nested and direct response formats
+
+        // Normalize images: backend dev-mode may return array of URLs instead of objects
+        if (Array.isArray(auctionData.images) && typeof auctionData.images[0] === 'string') {
+          auctionData.images = auctionData.images.map((url: string, index: number) => ({
+            url,
+            alt: auctionData.title || 'Auction image',
+            isPrimary: index === 0,
+            caption: '',
+            order: index
+          }));
         }
 
-        const data = await response.json();
-        const auctionData = data.data?.auction || data; // Handle both nested and direct response formats
+        // Normalize time fields: map endDate -> endTime if needed
+        if (auctionData.endDate && !auctionData.endTime) {
+          try {
+            const d = new Date(auctionData.endDate);
+            auctionData.endTime = isNaN(d.getTime()) ? auctionData.endDate : d.toISOString();
+          } catch {
+            auctionData.endTime = auctionData.endDate;
+          }
+        }
+
         setAuction(auctionData);
 
         // Check if user has this auction in watchlist
         if (user && auctionData.watchedBy) {
           setIsWatched(auctionData.watchedBy.includes(user._id));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching auction:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load auction');
+        const status = error?.response?.status;
+        if (status === 404) {
+          setError('Auction not found');
+        } else {
+          setError(error?.message || 'Failed to load auction');
+        }
       } finally {
         setLoading(false);
       }
@@ -139,36 +158,27 @@ const AuctionDetailPage: React.FC = () => {
     }
 
     try {
-      const endpoint = `/api/auctions/${auctionId}/watchlist`;
-      const method = shouldWatch ? 'POST' : 'DELETE';
-      
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setIsWatched(shouldWatch);
-        
-        // Update the auction's watchedBy array
-        if (auction) {
-          const updatedWatchedBy = shouldWatch 
-            ? [...auction.watchedBy, user._id]
-            : auction.watchedBy.filter(id => id !== user._id);
-          
-          setAuction(prev => prev ? { ...prev, watchedBy: updatedWatchedBy } : null);
-        }
-
-        showNotification(
-          shouldWatch ? 'Added to watchlist' : 'Removed from watchlist',
-          'success'
-        );
+      if (shouldWatch) {
+        await apiEndpoints.auctions.addToWatchlist(auctionId);
       } else {
-        throw new Error('Failed to update watchlist');
+        await apiEndpoints.auctions.removeFromWatchlist(auctionId);
       }
+
+      setIsWatched(shouldWatch);
+
+      // Update the auction's watchedBy array
+      if (auction) {
+        const updatedWatchedBy = shouldWatch 
+          ? [...auction.watchedBy, user._id]
+          : auction.watchedBy.filter(id => id !== user._id);
+        
+        setAuction(prev => prev ? { ...prev, watchedBy: updatedWatchedBy } : null);
+      }
+
+      showNotification(
+        shouldWatch ? 'Added to watchlist' : 'Removed from watchlist',
+        'success'
+      );
     } catch (error) {
       console.error('Error updating watchlist:', error);
       showNotification('Failed to update watchlist', 'error');
@@ -222,30 +232,24 @@ const AuctionDetailPage: React.FC = () => {
 
     setBidLoading(true);
     try {
-      const response = await fetch(`/api/bids/${auction._id}/place`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ amount: pendingBidAmount })
+      // Use centralized API client for consistent auth and error handling
+      const { data: res } = await apiEndpoints.auctions.placeBid(auction._id, {
+        amount: pendingBidAmount,
+        bidType: 'manual'
       });
 
-      if (response.ok) {
-        const updatedAuction = await response.json();
-        setAuction(updatedAuction);
-        setShowBidModal(false);
-        showNotification('Bid placed successfully!', 'success');
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to place bid');
-      }
-    } catch (error) {
-      console.error('Error placing bid:', error);
-      showNotification(
-        error instanceof Error ? error.message : 'Failed to place bid',
-        'error'
-      );
+      // Refresh auction details from server to reflect latest bids and state
+      const { data: auctionRes } = await apiEndpoints.auctions.getById(auction._id);
+      const refreshedAuction: any = (auctionRes && auctionRes.data && auctionRes.data.auction) ? auctionRes.data.auction : auctionRes;
+      setAuction(refreshedAuction);
+      setShowBidModal(false);
+
+      const successMessage = res?.message || 'Bid placed successfully!';
+      showNotification(successMessage, 'success');
+    } catch (err: any) {
+      console.error('Error placing bid:', err);
+      const message = err?.response?.data?.message || err?.message || 'Failed to place bid';
+      showNotification(message, 'error');
     } finally {
       setBidLoading(false);
     }
@@ -354,6 +358,22 @@ const AuctionDetailPage: React.FC = () => {
         currentUserId={user?._id}
         loading={false}
       />
+
+      {/* Admin/Seller Actions */}
+      {(user && (user._id === auction.seller._id || user.role === 'admin')) && (
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-end">
+            {(user.role === 'admin' || (auction.status !== 'ended' && auction.bidCount === 0)) && (
+              <button
+                onClick={() => navigate(`/auctions/${auction._id}/edit`)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+              >
+                Edit Auction
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Related Auctions */}
       <div className="max-w-7xl mx-auto px-4 py-8 border-t border-gray-200 mt-8">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -8,15 +8,15 @@ import {
   Heart, 
   TrendingUp, 
   Settings,
-  Calendar,
   DollarSign,
-  Eye,
   Clock,
   Award,
   Shield,
   Plus
 } from 'lucide-react';
-import { apiEndpoints } from '../services/api';
+import api, { apiEndpoints } from '../services/api';
+import ConfirmationModal from '../components/ConfirmationModal';
+import DuplicateAuctionModal from '../components/DuplicateAuctionModal';
 
 interface DashboardStats {
   totalAuctions: number;
@@ -42,7 +42,7 @@ interface Auction {
   currentBid: number;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended';
+  status: 'scheduled' | 'active' | 'ended' | 'paused';
   seller: {
     _id: string;
     username: string;
@@ -72,14 +72,20 @@ const Dashboard: React.FC = () => {
   const [myBids, setMyBids] = useState<any[]>([]);
   const [watchlist, setWatchlist] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<{[key: string]: boolean}>({});
+  
+  // Modal states
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    auction: Auction | null;
+  }>({ isOpen: false, auction: null });
+  
+  const [duplicateModal, setDuplicateModal] = useState<{
+    isOpen: boolean;
+    auction: Auction | null;
+  }>({ isOpen: false, auction: null });
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      fetchDashboardData();
-    }
-  }, [isAuthenticated, user]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -124,7 +130,13 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, showNotification]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchDashboardData();
+    }
+  }, [isAuthenticated, user, fetchDashboardData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -147,6 +159,196 @@ const Dashboard: React.FC = () => {
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
+  };
+
+  // Handle view auction
+  const handleViewAuction = (auctionId: string) => {
+    if (!auctionId) {
+      showNotification('Invalid auction ID', 'error');
+      return;
+    }
+    navigate(`/auctions/${auctionId}`);
+  };
+
+  // Handle edit auction
+  const handleEditAuction = (auctionId: string) => {
+    if (!auctionId) {
+      showNotification('Invalid auction ID', 'error');
+      return;
+    }
+    if (!isAuthenticated) {
+      showNotification('Please log in to edit auctions', 'error');
+      navigate('/login');
+      return;
+    }
+    navigate(`/auctions/${auctionId}/edit`);
+  };
+
+  // Handle delete auction
+  const handleDeleteAuction = (auction: Auction) => {
+    setDeleteModal({ isOpen: true, auction });
+  };
+
+  const confirmDeleteAuction = async () => {
+    const auction = deleteModal.auction;
+    if (!auction) return;
+    
+    setActionLoading(prev => ({ ...prev, [`delete-${auction._id}`]: true }));
+    
+    try {
+      await api.delete(`/auctions/${auction._id}`);
+      showNotification('Auction deleted successfully', 'success');
+      
+      // Refresh auctions list
+      setMyAuctions(prev => prev.filter(a => a._id !== auction._id));
+      setDeleteModal({ isOpen: false, auction: null });
+      
+      // Refresh dashboard data to update stats
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error deleting auction:', err);
+      
+      let errorMessage = 'Failed to delete auction';
+      if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to delete this auction';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Auction not found';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || 'Cannot delete auction with active bids';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      showNotification(errorMessage, 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`delete-${auction._id}`]: false }));
+    }
+  };
+
+  // Handle duplicate auction
+  const handleDuplicateAuction = (auction: Auction) => {
+    setDuplicateModal({ isOpen: true, auction });
+  };
+
+  const confirmDuplicateAuction = async (duplicateData: any) => {
+    const auction = duplicateModal.auction;
+    if (!auction) return;
+    
+    // Validate required fields
+    if (!duplicateData.title?.trim()) {
+      showNotification('Title is required', 'error');
+      return;
+    }
+    
+    if (!duplicateData.startTime || !duplicateData.endTime) {
+      showNotification('Start and end times are required', 'error');
+      return;
+    }
+    
+    if (new Date(duplicateData.startTime) >= new Date(duplicateData.endTime)) {
+      showNotification('End time must be after start time', 'error');
+      return;
+    }
+    
+    if (duplicateData.startingPrice <= 0) {
+      showNotification('Starting price must be greater than 0', 'error');
+      return;
+    }
+    
+    setActionLoading(prev => ({ ...prev, [`duplicate-${auction._id}`]: true }));
+    
+    try {
+      const response = await apiEndpoints.auctions.create(duplicateData);
+      
+      if (response.data) {
+        // Add the new auction to the list
+        setMyAuctions(prev => [response.data, ...prev]);
+        showNotification(`Auction "${duplicateData.title}" created successfully!`, 'success');
+        setDuplicateModal({ isOpen: false, auction: null });
+        
+        // Refresh dashboard data to update stats
+        fetchDashboardData();
+      }
+    } catch (err: any) {
+      console.error('Error duplicating auction:', err);
+      
+      let errorMessage = 'Failed to duplicate auction';
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || 'Invalid auction data';
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Please log in to create auctions';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to create auctions';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      showNotification(errorMessage, 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`duplicate-${auction._id}`]: false }));
+    }
+  };
+
+  // Handle pause/resume auction
+  const handleToggleAuctionStatus = async (auctionId: string, currentStatus: string) => {
+    if (!auctionId) {
+      showNotification('Invalid auction ID', 'error');
+      return;
+    }
+    
+    const newStatus = currentStatus === 'active' ? 'paused' : 'active';
+    const action = newStatus === 'active' ? 'resume' : 'pause';
+    
+    setActionLoading(prev => ({ ...prev, [`toggle-${auctionId}`]: true }));
+    
+    try {
+      await api.patch(`/auctions/${auctionId}/status`, { status: newStatus });
+      showNotification(`Auction ${action}d successfully`, 'success');
+      
+      // Update auction status in the list
+      setMyAuctions(prev => 
+        prev.map(auction => 
+          auction._id === auctionId 
+            ? { ...auction, status: newStatus as 'scheduled' | 'active' | 'ended' | 'paused' }
+            : auction
+        )
+      );
+      
+      // Refresh dashboard data to update stats
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error(`Error ${action}ing auction:`, err);
+      
+      let errorMessage = `Failed to ${action} auction`;
+      if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to modify this auction';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Auction not found';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || `Cannot ${action} auction`;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      showNotification(errorMessage, 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`toggle-${auctionId}`]: false }));
+    }
+  };
+
+  // Check if auction can be edited
+  const canEditAuction = (auction: any) => {
+    return auction.status !== 'ended' && auction.bidCount === 0;
+  };
+
+  // Check if auction can be deleted
+  const canDeleteAuction = (auction: any) => {
+    return auction.status !== 'ended' && auction.bidCount === 0;
+  };
+
+  // Check if auction can be paused/resumed
+  const canToggleStatus = (auction: any) => {
+    return auction.status === 'active' || auction.status === 'paused';
   };
 
   const handleCreateAuction = () => {
@@ -395,12 +597,14 @@ const Dashboard: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              auction.status === 'active' 
-                                ? 'bg-green-100 text-green-800'
-                                : auction.status === 'ended'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                               auction.status === 'active' 
+                                 ? 'bg-green-100 text-green-800'
+                                 : auction.status === 'ended'
+                                 ? 'bg-red-100 text-red-800'
+                                 : auction.status === 'paused'
+                                 ? 'bg-orange-100 text-orange-800'
+                                 : 'bg-yellow-100 text-yellow-800'
+                             }`}>
                               {auction.status}
                             </span>
                           </td>
@@ -414,12 +618,82 @@ const Dashboard: React.FC = () => {
                             {formatTimeRemaining(auction.endTime)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button className="text-blue-600 hover:text-blue-900 mr-3">
-                              View
-                            </button>
-                            <button className="text-gray-600 hover:text-gray-900">
-                              Edit
-                            </button>
+                            <div className="flex items-center space-x-2">
+                              {/* View Button */}
+                              <button 
+                                onClick={() => handleViewAuction(auction._id)}
+                                className="text-blue-600 hover:text-blue-900 transition-colors"
+                                title="View auction details"
+                              >
+                                View
+                              </button>
+                              
+                              {/* Edit Button - Conditional */}
+                              {canEditAuction(auction) ? (
+                                <button 
+                                  onClick={() => handleEditAuction(auction._id)}
+                                  className="text-green-600 hover:text-green-900 transition-colors"
+                                  title="Edit auction"
+                                >
+                                  Edit
+                                </button>
+                              ) : (
+                                <span 
+                                  className="text-gray-400 cursor-not-allowed"
+                                  title={auction.status === 'ended' ? 'Cannot edit ended auctions' : 'Cannot edit auctions with bids'}
+                                >
+                                  Edit
+                                </span>
+                              )}
+                              
+                              {/* Pause/Resume Button */}
+                              {canToggleStatus(auction) && (
+                                <button 
+                                  onClick={() => handleToggleAuctionStatus(auction._id, auction.status)}
+                                  disabled={actionLoading[`toggle-${auction._id}`]}
+                                  className={`transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                    auction.status === 'active' 
+                                      ? 'text-yellow-600 hover:text-yellow-900' 
+                                      : 'text-green-600 hover:text-green-900'
+                                  }`}
+                                  title={auction.status === 'active' ? 'Pause auction' : 'Resume auction'}
+                                >
+                                  {actionLoading[`toggle-${auction._id}`] 
+                                    ? (auction.status === 'active' ? 'Pausing...' : 'Resuming...')
+                                    : (auction.status === 'active' ? 'Pause' : 'Resume')
+                                  }
+                                </button>
+                              )}
+                              
+                              {/* Duplicate Button */}
+                              <button 
+                                onClick={() => handleDuplicateAuction(auction)}
+                                disabled={actionLoading[`duplicate-${auction._id}`]}
+                                className="text-purple-600 hover:text-purple-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Duplicate auction"
+                              >
+                                {actionLoading[`duplicate-${auction._id}`] ? 'Duplicating...' : 'Duplicate'}
+                              </button>
+                              
+                              {/* Delete Button - Conditional */}
+                              {canDeleteAuction(auction) ? (
+                                <button 
+                                  onClick={() => handleDeleteAuction(auction)}
+                                  disabled={actionLoading[`delete-${auction._id}`]}
+                                  className="text-red-600 hover:text-red-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Delete auction"
+                                >
+                                  {actionLoading[`delete-${auction._id}`] ? 'Deleting...' : 'Delete'}
+                                </button>
+                              ) : (
+                                <span 
+                                  className="text-gray-400 cursor-not-allowed"
+                                  title={auction.status === 'ended' ? 'Cannot delete ended auctions' : 'Cannot delete auctions with bids'}
+                                >
+                                  Delete
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -572,7 +846,10 @@ const Dashboard: React.FC = () => {
                           <span className="text-sm text-gray-600">
                             {formatTimeRemaining(auction.endTime)}
                           </span>
-                          <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                          <button
+                            onClick={() => navigate(`/auctions/${auction._id}`)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
                             View Details
                           </button>
                         </div>
@@ -824,6 +1101,29 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, auction: null })}
+        onConfirm={confirmDeleteAuction}
+        title="Delete Auction"
+        message={`Are you sure you want to delete "${deleteModal.auction?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        icon="delete"
+        loading={actionLoading[`delete-${deleteModal.auction?._id}`]}
+      />
+
+      {/* Duplicate Auction Modal */}
+      <DuplicateAuctionModal
+        isOpen={duplicateModal.isOpen}
+        onClose={() => setDuplicateModal({ isOpen: false, auction: null })}
+        onConfirm={confirmDuplicateAuction}
+        auction={duplicateModal.auction}
+        loading={actionLoading[`duplicate-${duplicateModal.auction?._id}`]}
+      />
     </div>
   );
 };

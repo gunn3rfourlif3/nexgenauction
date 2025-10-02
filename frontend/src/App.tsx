@@ -19,6 +19,7 @@ import Dashboard from './pages/Dashboard';
 import LiveBidding from './components/LiveBidding';
 import AdminCreateAuction from './pages/AdminCreateAuction';
 import CreateAuction from './pages/CreateAuction';
+import EditAuction from './pages/EditAuction';
 import CheckoutTest from './pages/CheckoutTest';
 
 // Import context
@@ -36,7 +37,9 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auctions" element={<AuctionCatalog />} />
-              <Route path="/auctions/:id" element={<AuctionDetailPage />} />
+  <Route path="/auctions/:id" element={<AuctionDetailPage />} />
+              <Route path="/auctions/:id/edit" element={<EditAuction />} />
+              <Route path="/admin/auctions/:id/edit" element={<EditAuction />} />
               <Route path="/auctions/:id/bid" element={<LiveBidding />} />
               <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/about" element={<About />} />

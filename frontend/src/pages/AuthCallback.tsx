@@ -24,7 +24,7 @@ const AuthCallback: React.FC = () => {
           localStorage.setItem('token', token);
           
           // Fetch user profile with the token
-          const response = await fetch('http://localhost:5000/api/auth/profile', {
+          const response = await fetch('/api/auth/profile', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'

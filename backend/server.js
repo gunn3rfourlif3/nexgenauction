@@ -15,10 +15,37 @@ const connectDB = require('./config/database');
 
 const app = express();
 const server = http.createServer(app);
+const isDevEnv = (process.env.NODE_ENV || 'development') !== 'production';
+const escapeRegex = (str) => str.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+const allowedOriginRegexes = [
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+  process.env.FRONTEND_URL ? new RegExp('^' + escapeRegex(process.env.FRONTEND_URL) + '$') : null,
+].filter(Boolean);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true; // allow non-browser requests
+  // In development, allow any localhost/127.0.0.1 origin
+  if (isDevEnv && allowedOriginRegexes.some((re) => re.test(origin))) return true;
+  // In production, only allow exact FRONTEND_URL if provided
+  if (!isDevEnv && process.env.FRONTEND_URL) {
+    return origin === process.env.FRONTEND_URL;
+  }
+  return false;
+};
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST']
+    origin: (origin, callback) => {
+      if (isDevEnv) {
+        return callback(null, true); // allow all origins in development
+      }
+      if (isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by Socket.IO CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
   }
 });
 
@@ -31,10 +58,19 @@ connectDB();
 app.use(helmet());
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+const corsOptions = isDevEnv
+  ? {
+      origin: true, // reflect request origin in dev
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    }
+  : {
+      origin: process.env.FRONTEND_URL || false,
+      credentials: true
+    };
+
+app.use(cors(corsOptions));
 
 // Logging middleware
 app.use(morgan('combined'));

@@ -1,4 +1,47 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe client with development-safe guard
+let stripe;
+const isDev = process.env.NODE_ENV === 'development';
+const skipDb = process.env.FORCE_DB_CONNECTION === 'false';
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+if (stripeKey) {
+  stripe = require('stripe')(stripeKey);
+} else {
+  // In development without Stripe key, provide a mock client to prevent startup failure
+  if (isDev) {
+    console.warn('Stripe: STRIPE_SECRET_KEY not set. Using mock Stripe client in development.');
+    const makeMockIntent = (overrides = {}) => ({
+      id: 'pi_mock_' + Date.now(),
+      client_secret: 'cs_mock_' + Date.now(),
+      status: 'requires_confirmation',
+      ...overrides
+    });
+    stripe = {
+      paymentIntents: {
+        create: async () => makeMockIntent(),
+        confirm: async (id) => makeMockIntent({ id, status: 'requires_capture' }),
+        capture: async (id, params) => makeMockIntent({ id, status: 'succeeded', captured_amount: params?.amount_to_capture ?? undefined }),
+        cancel: async (id) => makeMockIntent({ id, status: 'canceled' }),
+        retrieve: async (id) => makeMockIntent({ id })
+      },
+      refunds: {
+        create: async (params) => ({ id: 're_mock_' + Date.now(), status: 'succeeded', ...params })
+      },
+      payouts: {
+        create: async (params) => ({ id: 'po_mock_' + Date.now(), status: 'paid', arrival_date: Math.floor(Date.now()/1000) + 86400, ...params })
+      },
+      webhooks: {
+        constructEvent: (payload, signature, webhookSecret) => ({
+          id: 'evt_mock_' + Date.now(),
+          type: 'payment_intent.succeeded',
+          data: { object: makeMockIntent({ status: 'succeeded' }) }
+        })
+      }
+    };
+  } else {
+    throw new Error('Stripe configuration error: STRIPE_SECRET_KEY is not set');
+  }
+}
 const Payment = require('../models/Payment');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');

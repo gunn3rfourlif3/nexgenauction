@@ -12,8 +12,12 @@ class SocketService {
       return this.socket;
     }
 
-    const serverUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const devPorts = new Set(['3000', '3001', '3010', '3011', '5173']);
+    const useRelative = isDev && devPorts.has(window.location.port || '');
+
+    const serverUrl = useRelative ? '' : (process.env.REACT_APP_API_URL || '');
+
     this.socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       timeout: 20000,
@@ -66,8 +70,12 @@ class SocketService {
   // Listen for new bids
   onNewBid(callback) {
     if (this.socket) {
-      this.socket.on('new-bid', callback);
-      this.listeners.set('new-bid', callback);
+      const wrapped = (payload) => {
+        const bid = payload && typeof payload === 'object' && 'bid' in payload ? payload.bid : payload;
+        callback(bid);
+      };
+      this.socket.on('new-bid', wrapped);
+      this.listeners.set('new-bid', wrapped);
     }
   }
 

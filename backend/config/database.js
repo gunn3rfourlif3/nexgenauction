@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // For development without MongoDB, we'll skip the connection
-    if (process.env.NODE_ENV === 'development' && !process.env.FORCE_DB_CONNECTION) {
+    // For development without MongoDB, skip connection unless FORCE_DB_CONNECTION is explicitly 'true'
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
       console.log('Running in development mode without MongoDB connection');
       console.log('Set FORCE_DB_CONNECTION=true in .env to enable database connection');
       return;

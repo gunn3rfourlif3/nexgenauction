@@ -149,6 +149,26 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
     }
   }, [formData.startTime]);
 
+  // Sync form when initialData changes (edit mode)
+  useEffect(() => {
+    if (!initialData) return;
+    let normalizedImages: any = initialData.images as any;
+    if (Array.isArray(normalizedImages) && normalizedImages.length && typeof normalizedImages[0] === 'string') {
+      normalizedImages = normalizedImages.map((url: string, index: number) => ({
+        url,
+        alt: (initialData.title as string) || 'Auction image',
+        isPrimary: index === 0,
+        caption: '',
+        order: index
+      }));
+    }
+    setFormData(prev => ({
+      ...prev,
+      ...initialData,
+      images: normalizedImages ?? prev.images
+    }));
+  }, [initialData]);
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,

@@ -288,17 +288,54 @@ const getAuctions = async (req, res) => {
         }
       ];
 
+      // Basic filtering for development mode
+      // If a watchedBy filter is provided in dev-mode, dynamically mark
+      // a subset of mock auctions as watched by that user so the watchlist
+      // surfaces meaningful data on the Dashboard without a database.
+      const devWatchedBy = req.query.watchedBy;
+      if (devWatchedBy) {
+        const markCount = Math.min(4, mockAuctions.length);
+        for (let i = 0; i < markCount; i++) {
+          const a = mockAuctions[i];
+          if (!Array.isArray(a.watchedBy)) a.watchedBy = [];
+          const alreadyWatched = a.watchedBy.some(w => {
+            if (typeof w === 'string') return w === devWatchedBy;
+            if (w && typeof w === 'object' && w._id) return w._id === devWatchedBy;
+            return false;
+          });
+          if (!alreadyWatched) {
+            a.watchedBy.push(devWatchedBy);
+          }
+        }
+      }
+
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 12;
+      const { status, watchedBy } = req.query;
+
+      let filtered = mockAuctions;
+      if (status) {
+        filtered = filtered.filter(a => a.status === status);
+      }
+      if (watchedBy) {
+        filtered = filtered.filter(a => Array.isArray(a.watchedBy) && a.watchedBy.some(w => {
+          if (typeof w === 'string') return w === watchedBy;
+          if (w && typeof w === 'object' && w._id) return w._id === watchedBy;
+          return false;
+        }));
+      }
+
+      const start = (page - 1) * limit;
+      const paged = filtered.slice(start, start + limit);
 
       return res.json({
         success: true,
         data: {
-          auctions: mockAuctions,
+          auctions: paged,
           pagination: {
             currentPage: page,
-            totalPages: 1,
-            totalItems: mockAuctions.length,
+            totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
+            totalItems: filtered.length,
             itemsPerPage: limit
           }
         }
@@ -393,53 +430,10 @@ const getAuctionById = async (req, res) => {
 
     // Check if we're in development mode without database connection
     if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      // Return mock auction data for development
-      const mockAuction = {
-        _id: id,
-        title: 'Vintage Rolex Submariner',
-        description: 'A beautiful vintage Rolex Submariner in excellent condition. This timepiece represents the pinnacle of Swiss watchmaking craftsmanship.',
-        category: 'Watches',
-        subcategory: 'Luxury Watches',
-        startingPrice: 5000,
-        currentBid: 7500,
-        status: 'active',
-        condition: 'excellent',
-        featured: true,
-        images: [
-          '/api/placeholder/400/300',
-          '/api/placeholder/400/300',
-          '/api/placeholder/400/300'
-        ],
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        seller: { 
-          _id: '507f1f77bcf86cd799439012', 
-          username: 'watchcollector', 
-          firstName: 'John', 
-          lastName: 'Doe',
-          email: 'john@example.com',
-          phone: '+1234567890'
-        },
-        views: 156,
-        tags: ['rolex', 'vintage', 'luxury'],
-        bids: [
-          {
-            _id: '507f1f77bcf86cd799439015',
-            amount: 7500,
-            bidder: { _id: '507f1f77bcf86cd799439016', username: 'bidder1', firstName: 'Alice', lastName: 'Johnson' },
-            timestamp: new Date()
-          }
-        ],
-        conditionReport: {
-          overall: 'excellent',
-          details: 'Minor wear on bracelet, crystal is pristine'
-        },
-        createdAt: new Date()
-      };
-
-      return res.json({
-        success: true,
-        data: { auction: mockAuction }
-      });
+      // Use dev mock store to return consistent mock data
+      const { getAuction } = require('../services/devMockStore');
+      const mockAuction = getAuction(id);
+      return res.json({ success: true, data: { auction: mockAuction } });
     }
 
     const auction = await Auction.findById(id)
@@ -506,6 +500,56 @@ const updateAuction = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    // Development mode: simulate update without DB connection
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      // Ensure a user exists on request (middleware provides mock user in dev)
+      const sellerId = req.user?._id || 'mock_seller_id';
+
+      // Basic authorization: allow seller or admin
+      const isAdmin = req.user?.role === 'admin';
+      const isSeller = true; // In dev mode, assume ownership for simplicity
+      if (!isAdmin && !isSeller) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only update your own auctions'
+        });
+      }
+
+      // Compose a mock auction object merging updates
+      const mockAuction = {
+        _id: id,
+        title: 'Mock Auction (updated)',
+        description: 'This is a development-mode updated auction.',
+        category: 'Collectibles',
+        subcategory: 'Mock Items',
+        startingPrice: 100,
+        currentBid: 150,
+        reservePrice: 200,
+        bidIncrement: 10,
+        status: 'active',
+        condition: 'good',
+        images: [],
+        startTime: new Date(),
+        endTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        seller: {
+          _id: sellerId,
+          username: 'devuser',
+          firstName: 'Dev',
+          lastName: 'User'
+        },
+        views: 0,
+        watchedBy: [],
+        bids: [],
+        ...updates
+      };
+
+      return res.json({
+        success: true,
+        message: 'Auction updated successfully (development mode)',
+        data: { auction: mockAuction }
+      });
+    }
 
     const auction = await Auction.findById(id);
 
@@ -661,6 +705,22 @@ const getUserAuctions = async (req, res) => {
     const { page = 1, limit = 12, status } = req.query;
     const userId = req.params.userId || req.user._id;
 
+    // Development-mode fallback: return empty list to avoid DB dependency
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      return res.json({
+        success: true,
+        data: {
+          auctions: [],
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: parseInt(limit)
+          }
+        }
+      });
+    }
+
     // Check if user can access these auctions
     if (userId !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({
@@ -708,6 +768,22 @@ const getUserBids = async (req, res) => {
   try {
     const { page = 1, limit = 12 } = req.query;
     const userId = req.params.userId || req.user._id;
+
+    // Development-mode fallback: return empty list to avoid DB dependency
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      return res.json({
+        success: true,
+        data: {
+          auctions: [],
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: parseInt(limit)
+          }
+        }
+      });
+    }
 
     // Check if user can access these bids
     if (userId !== req.user._id.toString() && req.user.role !== 'admin') {

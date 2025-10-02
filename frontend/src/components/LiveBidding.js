@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
-import { apiEndpoints } from '../services/api';
+import api, { apiEndpoints } from '../services/api';
 import './LiveBidding.css';
 
 const LiveBidding = () => {
@@ -93,18 +93,29 @@ const LiveBidding = () => {
   const loadAuctionData = useCallback(async () => {
     try {
       setLoading(true);
-      const [auctionResponse, bidResponse, historyResponse] = await Promise.all([
+      const [auctionResponse, currentBidRes, historyRes] = await Promise.all([
         apiEndpoints.auctions.getById(id),
-        fetch(`http://localhost:5000/api/bids/current/${id}`).then(res => res.json()).catch(() => ({ data: null })),
-        fetch(`http://localhost:5000/api/bids/history/${id}`).then(res => res.json()).catch(() => ({ data: [] }))
+        fetch(`/api/bids/${id}/current`).then(res => res.json()).catch(() => ({ success: false })),
+        fetch(`/api/bids/${id}/history`).then(res => res.json()).catch(() => ({ success: false }))
       ]);
 
-      setAuction(auctionResponse.data.data);
-      setCurrentBid(bidResponse.data);
-      setBidHistory(historyResponse.data || []);
+      const auctionData = (auctionResponse.data && auctionResponse.data.data && auctionResponse.data.data.auction)
+        ? auctionResponse.data.data.auction
+        : (auctionResponse.data && auctionResponse.data.data)
+          ? auctionResponse.data.data
+          : auctionResponse.data;
+
+      setAuction(auctionData);
+
+      const currentBidData = currentBidRes && currentBidRes.success ? currentBidRes.data?.currentBid || null : null;
+      setCurrentBid(currentBidData);
+
+      const historyData = historyRes && historyRes.success ? (historyRes.data?.bids || []) : [];
+      setBidHistory(historyData);
       
       // Set initial bid amount to minimum bid
-      const minBid = calculateMinBid(bidResponse.data?.amount || auctionResponse.data.data.startingBid);
+      const baseAmount = currentBidData?.amount || auctionData?.startingPrice || 0;
+      const minBid = calculateMinBid(baseAmount);
       setBidAmount(minBid.toString());
       
     } catch (error) {
@@ -144,7 +155,7 @@ const LiveBidding = () => {
   // Validate bid amount
   const validateBidAmount = (amount) => {
     const numAmount = parseFloat(amount);
-    const minBid = calculateMinBid(currentBid?.amount || auction?.startingBid || 0);
+    const minBid = calculateMinBid(currentBid?.amount || auction?.startingPrice || 0);
     
     if (isNaN(numAmount) || numAmount <= 0) {
       return { isValid: false, message: 'Please enter a valid bid amount' };
@@ -220,18 +231,14 @@ const LiveBidding = () => {
     try {
       setError('');
       
-      // For now, we'll use a direct fetch call since auto bid endpoint might not be implemented yet
-      await fetch(`http://localhost:5000/api/bids/auto`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          auctionId: id,
-          maxAmount: pendingAutoBidAmount
-        })
+      // Use correct endpoint with axios instance to include auth headers
+      const response = await api.post(`/bids/${id}/auto-bid`, {
+        maxAmount: pendingAutoBidAmount
       });
+
+      if (!response?.data?.success) {
+        throw new Error(response?.data?.message || 'Failed to set auto bid');
+      }
 
       setIsAutoBidEnabled(true);
       setSuccess(`Auto bid set to ${formatCurrency(pendingAutoBidAmount)}`);
@@ -239,7 +246,8 @@ const LiveBidding = () => {
       
     } catch (error) {
       console.error('Error setting auto bid:', error);
-      setError(error.response?.data?.message || 'Failed to set auto bid');
+      const msg = error.response?.data?.message || error.message || 'Failed to set auto bid';
+      setError(msg);
       setTimeout(() => setError(''), 5000);
     } finally {
       setPendingAutoBidAmount(null);
@@ -324,7 +332,7 @@ const LiveBidding = () => {
   }
 
   const isAuctionActive = new Date(auction.endTime) > new Date();
-  const minBid = calculateMinBid(currentBid?.amount || auction.startingBid);
+  const minBid = calculateMinBid(currentBid?.amount || auction.startingPrice);
 
   return (
     <div className="live-bidding-container">
@@ -345,7 +353,7 @@ const LiveBidding = () => {
           <div className="detail-item">
             <span className="label">Current Bid:</span>
             <span className="current-bid">
-              {currentBid ? formatCurrency(currentBid.amount) : formatCurrency(auction.startingBid)}
+              {currentBid ? formatCurrency(currentBid.amount) : formatCurrency(auction.startingPrice)}
             </span>
           </div>
           <div className="detail-item">
@@ -369,8 +377,8 @@ const LiveBidding = () => {
             </div>
           </div>
           <div className="detail-item">
-            <span className="label">Starting Bid:</span>
-            <span>{formatCurrency(auction.startingBid)}</span>
+            <span className="label">Starting Price:</span>
+            <span>{formatCurrency(auction.startingPrice)}</span>
           </div>
         </div>
       </div>

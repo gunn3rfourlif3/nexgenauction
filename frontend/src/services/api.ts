@@ -1,6 +1,21 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Prefer relative base URL in development to use CRA proxy
+const isDevEnv = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const devPorts = new Set(['3000', '3001', '3010', '3011', '5173']);
+const shouldUseRelativeApi = isDevEnv && devPorts.has(window.location.port || '');
+
+const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const defaultBackendPort = '5005';
+const absoluteDevApi = `http://${hostname}:${defaultBackendPort}/api`;
+
+const API_BASE_URL = (() => {
+  const envUrl = process.env.REACT_APP_API_URL;
+  if (envUrl && /^https?:\/\//.test(envUrl)) return envUrl;
+  if (shouldUseRelativeApi) return '/api';
+  return envUrl || absoluteDevApi;
+})();
 
 // Create axios instance with default config
 const api = axios.create({
@@ -31,8 +46,16 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
+    // Be conservative: only force logout on 401s that are clearly auth-related
+    const status = error.response?.status;
+    const requestUrl = error.config?.url || '';
+    const hadAuthHeader = !!error.config?.headers?.Authorization;
+    const isAuthRoute = /\/auth\/(login|register|forgot-password|reset-password)/.test(requestUrl);
+    const message = error.response?.data?.message || '';
+    const isTokenError = /Token expired|Invalid token|Access denied\. No token provided|User not found|Account is deactivated/i.test(message);
+
+    if (status === 401 && !isAuthRoute && (hadAuthHeader || isTokenError)) {
+      // Token expired/invalid or protected endpoint without valid auth
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
