@@ -244,6 +244,19 @@ const AuctionDetailPage: React.FC = () => {
       setAuction(refreshedAuction);
       setShowBidModal(false);
 
+      // Dispatch a cross-page event so Dashboard can refresh My Bids immediately
+      try {
+        const eventDetail = {
+          auctionId: auction._id,
+          amount: pendingBidAmount,
+          userId: user._id,
+          timestamp: Date.now()
+        };
+        window.dispatchEvent(new CustomEvent('nexgen:bid-placed', { detail: eventDetail }));
+      } catch (e) {
+        // no-op: event dispatch should never block UX
+      }
+
       const successMessage = res?.message || 'Bid placed successfully!';
       showNotification(successMessage, 'success');
     } catch (err: any) {

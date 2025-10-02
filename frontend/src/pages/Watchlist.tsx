@@ -4,6 +4,7 @@ import AuctionGrid from '../components/AuctionGrid';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { Heart, Trash2 } from 'lucide-react';
+import { apiEndpoints } from '../services/api';
 
 interface Auction {
   _id: string;
@@ -71,23 +72,14 @@ const Watchlist: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/auctions/my/watchlist?page=${page}&limit=${pagination.itemsPerPage}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch watchlist');
-      }
-
-      const data = await response.json();
+      const response = await apiEndpoints.auctions.getAll({ watchedBy: user._id, page, limit: pagination.itemsPerPage });
+      const data = response.data?.data || {};
       setAuctions(data.auctions || []);
       setPagination(prev => ({
         ...prev,
-        currentPage: data.currentPage || 1,
-        totalPages: data.totalPages || 1,
-        totalItems: data.totalItems || 0
+        currentPage: data.pagination?.currentPage || 1,
+        totalPages: data.pagination?.totalPages || 1,
+        totalItems: data.pagination?.totalItems || 0
       }));
     } catch (error) {
       console.error('Error fetching watchlist:', error);

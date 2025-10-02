@@ -93,5 +93,7 @@ function placeBid(auctionId, bidder, amount, bidType = 'manual', maxAutoBid = nu
 module.exports = {
   getAuction,
   incrementViews,
-  placeBid
+  placeBid,
+  // List all auctions currently in the dev store
+  listAuctions: () => Array.from(store.values())
 };

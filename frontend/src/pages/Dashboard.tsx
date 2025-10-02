@@ -113,7 +113,14 @@ const Dashboard: React.FC = () => {
 
       // Calculate stats
       const activeAuctions = userAuctions.filter((auction: Auction) => auction.status === 'active').length;
-      const wonAuctions = userBids.filter((bid: any) => bid.winner?._id === user?._id).length;
+      const wonAuctions = userBids.filter((auction: any) => auction.winner?._id === user?._id).length;
+      // Sum of all bids the user placed across auctions
+      const totalUserBids = Array.isArray(userBids)
+        ? userBids.reduce((sum: number, auction: any) => {
+            const count = Array.isArray(auction?.userBids) ? auction.userBids.length : 0;
+            return sum + count;
+          }, 0)
+        : 0;
       const totalEarnings = userAuctions
         .filter((auction: Auction) => auction.status === 'ended')
         .reduce((sum: number, auction: Auction) => sum + auction.currentBid, 0);
@@ -121,7 +128,7 @@ const Dashboard: React.FC = () => {
       setStats({
         totalAuctions: userAuctions.length,
         activeAuctions,
-        totalBids: userBids.length,
+        totalBids: totalUserBids,
         watchlistCount: userWatchlist.length,
         wonAuctions,
         totalEarnings
@@ -155,6 +162,39 @@ const Dashboard: React.FC = () => {
       fetchDashboardData();
     }, 30000); // refresh every 30s
     return () => clearInterval(interval);
+  }, [activeTab, isAuthenticated, user, fetchDashboardData]);
+
+  // Refresh data when switching to My Bids tab
+  useEffect(() => {
+    if (activeTab === 'my-bids' && isAuthenticated && user) {
+      fetchDashboardData();
+    }
+  }, [activeTab, isAuthenticated, user, fetchDashboardData]);
+
+  // Lightweight polling to keep My Bids fresh while viewing that tab
+  useEffect(() => {
+    if (activeTab !== 'my-bids' || !isAuthenticated || !user) return;
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 15000); // refresh every 15s on My Bids
+    return () => clearInterval(interval);
+  }, [activeTab, isAuthenticated, user, fetchDashboardData]);
+
+  // Listen for cross-page bid-placed events to refresh My Bids immediately
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const handler = (e: Event) => {
+      try {
+        // Only refresh if we're on My Bids or Overview, to keep UX snappy
+        if (activeTab === 'my-bids' || activeTab === 'overview') {
+          fetchDashboardData();
+        }
+      } catch {}
+    };
+    window.addEventListener('nexgen:bid-placed', handler as EventListener);
+    return () => {
+      window.removeEventListener('nexgen:bid-placed', handler as EventListener);
+    };
   }, [activeTab, isAuthenticated, user, fetchDashboardData]);
 
   const formatCurrency = (amount: number) => {

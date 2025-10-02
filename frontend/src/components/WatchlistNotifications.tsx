@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { Bell, Clock, DollarSign, Gavel } from 'lucide-react';
+import api from '../services/api';
 
 interface WatchlistNotification {
   id: string;
@@ -33,14 +34,9 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
 
     try {
       setLoading(true);
-      const response = await fetch('/api/notifications/watchlist', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      const response = await api.get('/notifications/watchlist');
+      if (response.status === 200) {
+        const data = response.data?.data || response.data || {};
         setNotifications(data.notifications || []);
         setUnreadCount(data.unreadCount || 0);
       }

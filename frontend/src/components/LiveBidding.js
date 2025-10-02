@@ -200,6 +200,18 @@ const LiveBidding = () => {
 
       setSuccess(`Bid of ${formatCurrency(pendingBidAmount)} placed successfully!`);
       setTimeout(() => setSuccess(''), 3000);
+
+      // Dispatch a cross-page event so Dashboard can refresh My Bids immediately
+      try {
+        const eventDetail = {
+          auctionId: id,
+          amount: pendingBidAmount,
+          timestamp: Date.now()
+        };
+        window.dispatchEvent(new CustomEvent('nexgen:bid-placed', { detail: eventDetail }));
+      } catch (e) {
+        // no-op: event dispatch should never block UX
+      }
       
     } catch (error) {
       console.error('Error placing bid:', error);

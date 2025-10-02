@@ -705,20 +705,70 @@ const getUserAuctions = async (req, res) => {
     const { page = 1, limit = 12, status } = req.query;
     const userId = req.params.userId || req.user._id;
 
-    // Development-mode fallback: return empty list to avoid DB dependency
+    // Development-mode fallback: aggregate bids from in-memory dev store
     if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      return res.json({
-        success: true,
-        data: {
-          auctions: [],
-          pagination: {
-            currentPage: parseInt(page),
-            totalPages: 0,
-            totalItems: 0,
-            itemsPerPage: parseInt(limit)
+      try {
+        const { listAuctions } = require('../services/devMockStore');
+        const allAuctions = listAuctions();
+
+        // Filter auctions where this user has bids
+        const userAuctions = allAuctions.filter(a => Array.isArray(a.bids) && a.bids.some(b => {
+          const bidderId = (b.bidder && (b.bidder._id || b.bidder)) || '';
+          return bidderId.toString() === userId.toString();
+        }));
+
+        // Sort by most recent bid timestamp
+        userAuctions.sort((a, b) => {
+          const aLatest = Math.max(...(a.bids || []).map(bid => new Date(bid.timestamp || bid.bidTime || 0).getTime()));
+          const bLatest = Math.max(...(b.bids || []).map(bid => new Date(bid.timestamp || bid.bidTime || 0).getTime()));
+          return bLatest - aLatest;
+        });
+
+        // Pagination in memory
+        const start = (parseInt(page) - 1) * parseInt(limit);
+        const end = start + parseInt(limit);
+        const paged = userAuctions.slice(start, end).map(a => {
+          const userBids = (a.bids || []).filter(b => {
+            const bidderId = (b.bidder && (b.bidder._id || b.bidder)) || '';
+            return bidderId.toString() === userId.toString();
+          });
+          const highestUserBid = userBids.length ? Math.max(...userBids.map(b => Number(b.amount) || 0)) : 0;
+          return {
+            ...a,
+            userBids,
+            highestUserBid
+          };
+        });
+
+        const total = userAuctions.length;
+
+        return res.json({
+          success: true,
+          data: {
+            auctions: paged,
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: Math.ceil(total / parseInt(limit)),
+              totalItems: total,
+              itemsPerPage: parseInt(limit)
+            }
           }
-        }
-      });
+        });
+      } catch (e) {
+        console.error('Dev-mode getUserBids aggregation error:', e);
+        return res.json({
+          success: true,
+          data: {
+            auctions: [],
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: parseInt(limit)
+            }
+          }
+        });
+      }
     }
 
     // Check if user can access these auctions
@@ -769,20 +819,70 @@ const getUserBids = async (req, res) => {
     const { page = 1, limit = 12 } = req.query;
     const userId = req.params.userId || req.user._id;
 
-    // Development-mode fallback: return empty list to avoid DB dependency
+    // Development-mode fallback: aggregate bids from in-memory dev store
     if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      return res.json({
-        success: true,
-        data: {
-          auctions: [],
-          pagination: {
-            currentPage: parseInt(page),
-            totalPages: 0,
-            totalItems: 0,
-            itemsPerPage: parseInt(limit)
+      try {
+        const { listAuctions } = require('../services/devMockStore');
+        const allAuctions = listAuctions();
+
+        // Filter auctions where this user has bids
+        const userBidAuctions = allAuctions.filter(a => Array.isArray(a.bids) && a.bids.some(b => {
+          const bidderId = (b.bidder && (b.bidder._id || b.bidder)) || '';
+          return bidderId.toString() === userId.toString();
+        }));
+
+        // Sort by most recent bid timestamp
+        userBidAuctions.sort((a, b) => {
+          const aLatest = Math.max(...(a.bids || []).map(bid => new Date(bid.timestamp || bid.bidTime || 0).getTime()));
+          const bLatest = Math.max(...(b.bids || []).map(bid => new Date(bid.timestamp || bid.bidTime || 0).getTime()));
+          return bLatest - aLatest;
+        });
+
+        // Pagination in memory
+        const start = (parseInt(page) - 1) * parseInt(limit);
+        const end = start + parseInt(limit);
+        const paged = userBidAuctions.slice(start, end).map(a => {
+          const userBids = (a.bids || []).filter(b => {
+            const bidderId = (b.bidder && (b.bidder._id || b.bidder)) || '';
+            return bidderId.toString() === userId.toString();
+          });
+          const highestUserBid = userBids.length ? Math.max(...userBids.map(b => Number(b.amount) || 0)) : 0;
+          return {
+            ...a,
+            userBids,
+            highestUserBid
+          };
+        });
+
+        const total = userBidAuctions.length;
+
+        return res.json({
+          success: true,
+          data: {
+            auctions: paged,
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: Math.ceil(total / parseInt(limit)),
+              totalItems: total,
+              itemsPerPage: parseInt(limit)
+            }
           }
-        }
-      });
+        });
+      } catch (e) {
+        console.error('Dev-mode getUserBids aggregation error:', e);
+        return res.json({
+          success: true,
+          data: {
+            auctions: [],
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: parseInt(limit)
+            }
+          }
+        });
+      }
     }
 
     // Check if user can access these bids
