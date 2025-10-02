@@ -100,11 +100,14 @@ const Dashboard: React.FC = () => {
       setMyBids(userBids);
 
       // Fetch watchlist (assuming we have this endpoint)
+      let userWatchlist: Auction[] = [];
       try {
         const watchlistResponse = await apiEndpoints.auctions.getAll({ watchedBy: user?._id });
-        setWatchlist(watchlistResponse.data.data.auctions || []);
+        userWatchlist = watchlistResponse.data.data.auctions || [];
+        setWatchlist(userWatchlist);
       } catch (error) {
         console.log('Watchlist fetch failed, using empty array');
+        userWatchlist = [];
         setWatchlist([]);
       }
 
@@ -119,7 +122,7 @@ const Dashboard: React.FC = () => {
         totalAuctions: userAuctions.length,
         activeAuctions,
         totalBids: userBids.length,
-        watchlistCount: watchlist.length,
+        watchlistCount: userWatchlist.length,
         wonAuctions,
         totalEarnings
       });
@@ -137,6 +140,22 @@ const Dashboard: React.FC = () => {
       fetchDashboardData();
     }
   }, [isAuthenticated, user, fetchDashboardData]);
+
+  // Re-fetch when returning to Overview tab
+  useEffect(() => {
+    if (activeTab === 'overview' && isAuthenticated && user) {
+      fetchDashboardData();
+    }
+  }, [activeTab, isAuthenticated, user, fetchDashboardData]);
+
+  // Lightweight polling to keep overview fresh
+  useEffect(() => {
+    if (activeTab !== 'overview' || !isAuthenticated || !user) return;
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, [activeTab, isAuthenticated, user, fetchDashboardData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -449,6 +468,16 @@ const Dashboard: React.FC = () => {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            {/* Manual Refresh */}
+            <div className="flex justify-end">
+              <button
+                onClick={fetchDashboardData}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60"
+                disabled={loading}
+              >
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <StatCard
