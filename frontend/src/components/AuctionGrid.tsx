@@ -108,7 +108,15 @@ const AuctionGrid: React.FC<AuctionGridProps> = ({
           key={auction._id}
           auction={auction}
           onWatchlistToggle={onWatchlistToggle}
-          isWatched={watchedAuctions.includes(auction._id)}
+          isWatched={
+            currentUserId
+              ? (auction.watchedBy || []).some((w: any) => {
+                  if (typeof w === 'string') return w === currentUserId;
+                  if (w && typeof w === 'object' && w._id) return w._id === currentUserId || w._id.toString() === currentUserId;
+                  return false;
+                })
+              : watchedAuctions.includes(auction._id)
+          }
           currentUserId={currentUserId}
         />
       ))}

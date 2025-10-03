@@ -131,7 +131,13 @@ const AuctionDetailPage: React.FC = () => {
 
         // Check if user has this auction in watchlist
         if (user && auctionData.watchedBy) {
-          setIsWatched(auctionData.watchedBy.includes(user._id));
+          const uid = user._id;
+          const watched = (auctionData.watchedBy || []).some((w: any) => {
+            if (typeof w === 'string') return w === uid;
+            if (w && typeof w === 'object' && w._id) return w._id === uid || w._id.toString() === uid;
+            return false;
+          });
+          setIsWatched(watched);
         }
       } catch (error: any) {
         console.error('Error fetching auction:', error);
@@ -158,28 +164,80 @@ const AuctionDetailPage: React.FC = () => {
     }
 
     try {
+      let alreadyNotWatchedFlag = false;
       if (shouldWatch) {
         await apiEndpoints.auctions.addToWatchlist(auctionId);
       } else {
-        await apiEndpoints.auctions.removeFromWatchlist(auctionId);
+        const { data: res } = await apiEndpoints.auctions.removeFromWatchlist(auctionId);
+        // Support both direct and nested data formats
+        alreadyNotWatchedFlag = (res && res.data && typeof res.data.alreadyNotWatched !== 'undefined')
+          ? !!res.data.alreadyNotWatched
+          : !!res?.alreadyNotWatched;
       }
 
       setIsWatched(shouldWatch);
 
-      // Update the auction's watchedBy array
+      // Update the auction's watchedBy array with normalization and deduplication
       if (auction) {
-        const updatedWatchedBy = shouldWatch 
-          ? [...auction.watchedBy, user._id]
-          : auction.watchedBy.filter(id => id !== user._id);
-        
-        setAuction(prev => prev ? { ...prev, watchedBy: updatedWatchedBy } : null);
+        const normalizeIds = (arr: any[]) => arr
+          .map((w: any) => {
+            if (typeof w === 'string') return w;
+            if (w && typeof w === 'object' && w._id) return w._id.toString();
+            return '';
+          })
+          .filter(Boolean);
+
+        const currentIds = normalizeIds(auction.watchedBy || []);
+        const watchedBy = shouldWatch
+          ? Array.from(new Set([...currentIds, user._id]))
+          : currentIds.filter((id: string) => id !== user._id);
+
+        setAuction(prev => prev ? { ...prev, watchedBy } : null);
       }
 
-      showNotification(
-        shouldWatch ? 'Added to watchlist' : 'Removed from watchlist',
-        'success'
-      );
-    } catch (error) {
+      if (!shouldWatch && alreadyNotWatchedFlag) {
+        showNotification('This item wasn’t in your watchlist', 'info');
+      } else {
+        showNotification(
+          shouldWatch ? 'Added to watchlist' : 'Removed from watchlist',
+          'success'
+        );
+      }
+    } catch (error: any) {
+      // Handle idempotent cases: treat certain 400s as success
+      const status = error?.response?.status;
+      const msg: string = (error?.response?.data?.message || error?.response?.data?.error || '').toLowerCase();
+
+      const isAddAlready = shouldWatch && status === 400 && msg.includes('already');
+      const isRemoveNotPresent = !shouldWatch && status === 400 && msg.includes('not in');
+
+      if (isAddAlready || isRemoveNotPresent) {
+        setIsWatched(shouldWatch);
+
+        if (auction) {
+          const normalizeIds = (arr: any[]) => arr
+            .map((w: any) => {
+              if (typeof w === 'string') return w;
+              if (w && typeof w === 'object' && w._id) return w._id.toString();
+              return '';
+            })
+            .filter(Boolean);
+
+          const currentIds = normalizeIds(auction.watchedBy || []);
+          const watchedBy = shouldWatch
+            ? Array.from(new Set([...currentIds, user._id]))
+            : currentIds.filter((id: string) => id !== user._id);
+
+          setAuction(prev => prev ? { ...prev, watchedBy } : null);
+        }
+
+        showNotification(
+          shouldWatch ? 'Added to watchlist' : 'Removed from watchlist',
+          'success'
+        );
+        return;
+      }
+
       console.error('Error updating watchlist:', error);
       showNotification('Failed to update watchlist', 'error');
     }

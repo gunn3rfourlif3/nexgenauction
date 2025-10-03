@@ -10,6 +10,8 @@ const Home: React.FC = () => {
   const { showNotification } = useNotification();
   const [apiStatus, setApiStatus] = useState<any>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showApiDetails, setShowApiDetails] = useState(false);
+  const [isCheckingApi, setIsCheckingApi] = useState(false);
 
   // Handle place bid for sample auctions
   const handlePlaceBid = (auctionId: number) => {
@@ -38,12 +40,80 @@ const Home: React.FC = () => {
 
     checkApiStatus();
   }, []);
+
+  const refreshApiStatus = async () => {
+    setIsCheckingApi(true);
+    try {
+      const response = await apiEndpoints.status();
+      setApiStatus(response.data);
+      setApiError(null);
+    } catch (error: any) {
+      console.error('API Status Error:', error);
+      setApiError(error.message || 'Failed to connect to API');
+    } finally {
+      setIsCheckingApi(false);
+    }
+  };
   return (
     <div className="min-h-screen">
       {/* API Status Banner */}
       {apiStatus && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 text-center">
-          <strong>API Connected:</strong> {apiStatus.data?.service} v{apiStatus.data?.version} - Environment: {apiStatus.data?.environment}
+        <div className="bg-green-100 border border-green-400 text-green-700">
+          <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="text-center sm:text-left">
+              <strong>API Connected:</strong> {apiStatus.data?.service} v{apiStatus.data?.version} - Environment: {apiStatus.data?.environment}
+            </div>
+            <div className="flex items-center justify-center sm:justify-end gap-2 px-2">
+              <button
+                onClick={() => setShowApiDetails(v => !v)}
+                className="bg-green-200 hover:bg-green-300 text-green-800 text-sm font-medium px-3 py-1 rounded"
+              >
+                {showApiDetails ? 'Hide details' : 'View details'}
+              </button>
+              <a
+                href="/api/status"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white hover:bg-gray-100 text-green-800 border border-green-400 text-sm font-medium px-3 py-1 rounded"
+              >
+                Open raw
+              </a>
+              <button
+                onClick={refreshApiStatus}
+                disabled={isCheckingApi}
+                className={`text-sm font-medium px-3 py-1 rounded border ${isCheckingApi ? 'bg-gray-200 text-gray-600 border-gray-300 cursor-not-allowed' : 'bg-green-200 hover:bg-green-300 text-green-800 border-green-400'}`}
+              >
+                {isCheckingApi ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+          {showApiDetails && (
+            <div className="bg-white border-t border-green-200 px-4 py-3 text-left text-sm text-gray-800">
+              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                <div><span className="font-semibold">Uptime:</span> {typeof apiStatus?.data?.uptime === 'number' ? apiStatus.data.uptime.toFixed(1) : apiStatus?.data?.uptime}s</div>
+                <div><span className="font-semibold">Timestamp:</span> {apiStatus?.data?.timestamp ? new Date(apiStatus.data.timestamp).toLocaleString() : '—'}</div>
+              </div>
+              {apiStatus?.data?.endpoints && (
+                <div className="mt-2">
+                  <div className="font-semibold mb-1">Endpoints:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(apiStatus.data.endpoints as Record<string, string>).map(([name, path]) => (
+                      <a
+                        key={name}
+                        href={path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-800 px-2 py-1 rounded"
+                        title={path}
+                      >
+                        {name}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
       {apiError && (

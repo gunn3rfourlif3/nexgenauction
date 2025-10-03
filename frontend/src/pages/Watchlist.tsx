@@ -104,10 +104,19 @@ const Watchlist: React.FC = () => {
       });
 
       if (response.ok) {
+        // Parse response to detect idempotent removal flag
+        let respBody: any = null;
+        try { respBody = await response.json(); } catch {}
+        const alreadyNotWatchedFlag = !!(respBody?.data?.alreadyNotWatched ?? respBody?.alreadyNotWatched);
+
         // Remove the auction from the local state
         setAuctions(prev => prev.filter(auction => auction._id !== auctionId));
         setPagination(prev => ({ ...prev, totalItems: prev.totalItems - 1 }));
-        showNotification('Removed from watchlist', 'success');
+        if (alreadyNotWatchedFlag) {
+          showNotification('Item was not in your watchlist', 'info');
+        } else {
+          showNotification('Removed from watchlist', 'success');
+        }
       } else {
         throw new Error('Failed to remove from watchlist');
       }
