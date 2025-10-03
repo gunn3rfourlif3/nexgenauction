@@ -942,6 +942,42 @@ const addToWatchlist = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Development-mode fallback: mutate in-memory store when DB is disabled
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      try {
+        const { getAuction } = require('../services/devMockStore');
+        const auction = getAuction(id);
+        auction.watchedBy = Array.isArray(auction.watchedBy) ? auction.watchedBy : [];
+
+        const userId = (req.user && (req.user._id || req.user.id))?.toString();
+        const alreadyWatched = auction.watchedBy.some(w => {
+          if (typeof w === 'string') return w === userId;
+          if (w && typeof w === 'object' && w._id) return w._id.toString() === userId;
+          return false;
+        });
+
+        if (alreadyWatched) {
+          return res.json({
+            success: true,
+            message: 'Auction already in watchlist (development mode)',
+            alreadyWatched: true
+          });
+        }
+
+        auction.watchedBy.push(userId);
+        return res.json({
+          success: true,
+          message: 'Auction added to watchlist (development mode)'
+        });
+      } catch (e) {
+        console.error('Dev-mode addToWatchlist error:', e);
+        return res.status(500).json({
+          success: false,
+          message: 'Server error while adding to watchlist (development mode)'
+        });
+      }
+    }
+
     const auction = await Auction.findById(id);
 
     if (!auction) {
@@ -951,11 +987,12 @@ const addToWatchlist = async (req, res) => {
       });
     }
 
-    // Check if already in watchlist
+    // Check if already in watchlist (idempotent)
     if (auction.watchedBy.includes(req.user._id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Auction is already in your watchlist'
+      return res.json({
+        success: true,
+        message: 'Auction already in watchlist',
+        alreadyWatched: true
       });
     }
 
@@ -980,12 +1017,67 @@ const removeFromWatchlist = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Development-mode fallback: mutate in-memory store when DB is disabled
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      try {
+        const { getAuction } = require('../services/devMockStore');
+        const auction = getAuction(id);
+        auction.watchedBy = Array.isArray(auction.watchedBy) ? auction.watchedBy : [];
+
+        const userId = (req.user && (req.user._id || req.user.id))?.toString();
+        // Determine current state to return symmetric flag
+        const wasWatched = auction.watchedBy.some(w => {
+          if (typeof w === 'string') return w === userId;
+          if (w && typeof w === 'object' && w._id) return w._id.toString() === userId;
+          return false;
+        });
+
+        if (!wasWatched) {
+          return res.json({
+            success: true,
+            message: 'Auction not in watchlist (development mode)',
+            alreadyNotWatched: true
+          });
+        }
+
+        auction.watchedBy = auction.watchedBy.filter(w => {
+          if (typeof w === 'string') return w !== userId;
+          if (w && typeof w === 'object' && w._id) return w._id.toString() !== userId;
+          return true;
+        });
+
+        return res.json({
+          success: true,
+          message: 'Auction removed from watchlist (development mode)'
+        });
+      } catch (e) {
+        console.error('Dev-mode removeFromWatchlist error:', e);
+        return res.status(500).json({
+          success: false,
+          message: 'Server error while removing from watchlist (development mode)'
+        });
+      }
+    }
+
     const auction = await Auction.findById(id);
 
     if (!auction) {
       return res.status(404).json({
         success: false,
         message: 'Auction not found'
+      });
+    }
+
+    // Determine current state to return symmetric flag
+    const wasWatchedDb = auction.watchedBy.some(
+      watcher => watcher.toString() === req.user._id.toString()
+    );
+
+    if (!wasWatchedDb) {
+      return res.json({
+        success: true,
+        message: 'Auction not in watchlist',
+        alreadyNotWatched: true
       });
     }
 
@@ -1012,6 +1104,52 @@ const getUserWatchlist = async (req, res) => {
   try {
     const { page = 1, limit = 12 } = req.query;
     const userId = req.user._id;
+
+    // Development-mode fallback: read from in-memory store when DB is disabled
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      try {
+        const { listAuctions } = require('../services/devMockStore');
+        const all = listAuctions();
+        const uid = (userId && userId.toString()) || '';
+
+        const watched = all.filter(a => Array.isArray(a.watchedBy) && a.watchedBy.some(w => {
+          if (typeof w === 'string') return w === uid;
+          if (w && typeof w === 'object' && w._id) return w._id.toString() === uid;
+          return false;
+        }));
+
+        const start = (parseInt(page) - 1) * parseInt(limit);
+        const end = start + parseInt(limit);
+        const paged = watched.slice(start, end);
+
+        return res.json({
+          success: true,
+          data: {
+            auctions: paged,
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: Math.ceil(watched.length / parseInt(limit)) || 0,
+              totalItems: watched.length,
+              itemsPerPage: parseInt(limit)
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Dev-mode getUserWatchlist error:', e);
+        return res.json({
+          success: true,
+          data: {
+            auctions: [],
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: parseInt(limit)
+            }
+          }
+        });
+      }
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
