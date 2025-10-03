@@ -43,6 +43,38 @@
       document.getElementById('watchOut').textContent = JSON.stringify(auctions, null, 2);
       document.getElementById('watchCount').textContent = auctions.length;
     }
+
+    async function addToWatchlist() {
+      const auctionId = document.getElementById('auctionId').value.trim();
+      if (!auctionId) { alert('Enter auctionId'); return; }
+      const token = localStorage.getItem('token');
+      const base = (localStorage.getItem('API_URL') || 'http://localhost:5006/api');
+      const res = await fetch(`${base}/auctions/${auctionId}/watchlist`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+      const json = await res.json().catch(() => ({ message: 'non-json response' }));
+      document.getElementById('watchActionOut').textContent = `POST /auctions/${auctionId}/watchlist -> ${res.status}\n` + JSON.stringify(json, null, 2);
+      if (res.ok || (res.status === 400 && /already/i.test(json.message || ''))) {
+        fetchWatchlist();
+      }
+    }
+
+    async function removeFromWatchlist() {
+      const auctionId = document.getElementById('auctionId').value.trim();
+      if (!auctionId) { alert('Enter auctionId'); return; }
+      const token = localStorage.getItem('token');
+      const base = (localStorage.getItem('API_URL') || 'http://localhost:5006/api');
+      const res = await fetch(`${base}/auctions/${auctionId}/watchlist`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+      const json = await res.json().catch(() => ({ message: 'non-json response' }));
+      document.getElementById('watchActionOut').textContent = `DELETE /auctions/${auctionId}/watchlist -> ${res.status}\n` + JSON.stringify(json, null, 2);
+      if (res.ok || (res.status === 400 && /not in/i.test((json.message || '') + (json.error || '')))) {
+        fetchWatchlist();
+      }
+    }
   </script>
 </head>
 <body>
@@ -67,6 +99,12 @@
       <button onclick="fetchWatchlist()">Fetch Watchlist</button>
       <div>Count: <strong id="watchCount">0</strong></div>
     </div>
+    <div class="row">
+      <input id="auctionId" placeholder="auction id" value="507f1f77bcf86cd799439012" />
+      <button onclick="addToWatchlist()">Add</button>
+      <button onclick="removeFromWatchlist()">Remove</button>
+    </div>
+    <pre id="watchActionOut">(watchlist add/remove response)</pre>
     <pre id="watchOut">(watchlist auctions)</pre>
   </div>
 </body>
