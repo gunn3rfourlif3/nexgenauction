@@ -12,15 +12,128 @@ const DEFAULT_SELLER = {
 
 const store = new Map(); // auctionId => auction object
 
+// Predefined catalog aligned with mock data in auctionController.getAuctions
+// Ensures detail pages display correct titles/categories per ID in dev mode
+const CATALOG = (() => {
+  const now = Date.now();
+  return {
+    '507f1f77bcf86cd799439011': {
+      _id: '507f1f77bcf86cd799439011',
+      title: 'Vintage Rolex Submariner 5513 - 1970',
+      description: 'An exceptional vintage Rolex Submariner reference 5513 from 1970.',
+      category: 'Collectibles',
+      subcategory: 'Luxury Watches',
+      startingPrice: 5000,
+      currentBid: 7500,
+      bidIncrement: 250,
+      status: 'active',
+      condition: 'excellent',
+      featured: true,
+      images: [
+        { url: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=600&fit=crop', alt: 'Rolex Submariner front view', isPrimary: true, order: 1 },
+        { url: 'https://images.unsplash.com/photo-1594534475808-b18fc33b045e?w=800&h=600&fit=crop', alt: 'Rolex Submariner side profile', isPrimary: false, order: 2 },
+        { url: 'https://images.unsplash.com/photo-1548181622-6ac3b2c2b8b7?w=800&h=600&fit=crop', alt: 'Rolex Submariner case back', isPrimary: false, order: 3 }
+      ],
+      endTime: new Date(now + 5 * 24 * 60 * 60 * 1000),
+      startTime: new Date(now - 2 * 24 * 60 * 60 * 1000),
+      seller: { ...DEFAULT_SELLER },
+      views: 342,
+      tags: ['rolex', 'vintage', 'luxury', 'submariner', '1970s'],
+      bids: [],
+      watchedBy: [],
+      bidCount: 0,
+      winner: null
+    },
+    '507f1f77bcf86cd799439013': {
+      _id: '507f1f77bcf86cd799439013',
+      title: 'Antique Persian Tabriz Rug - 19th Century',
+      description: 'Magnificent hand-knotted Persian Tabriz rug from the late 19th century.',
+      category: 'Antiques',
+      subcategory: 'Rugs & Textiles',
+      startingPrice: 2000,
+      currentBid: 3200,
+      bidIncrement: 100,
+      status: 'active',
+      condition: 'good',
+      featured: false,
+      images: [
+        { url: 'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=800&h=600&fit=crop', alt: 'Persian rug full view', isPrimary: true, order: 1 },
+        { url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop', alt: 'Persian rug detail', isPrimary: false, order: 2 }
+      ],
+      endTime: new Date(now + 3 * 24 * 60 * 60 * 1000),
+      startTime: new Date(now - 1 * 24 * 60 * 60 * 1000),
+      seller: { ...DEFAULT_SELLER, username: 'antiquedealer' },
+      views: 189,
+      tags: ['persian', 'antique', 'handwoven', 'tabriz', '19th-century'],
+      bids: [],
+      watchedBy: [],
+      bidCount: 0,
+      winner: null
+    },
+    '507f1f77bcf86cd799439018': {
+      _id: '507f1f77bcf86cd799439018',
+      title: '1965 Ford Mustang Fastback - Restored',
+      description: 'Stunning 1965 Ford Mustang Fastback with complete restoration.',
+      category: 'Vehicles',
+      subcategory: 'Classic Cars',
+      startingPrice: 25000,
+      currentBid: 32000,
+      bidIncrement: 500,
+      status: 'active',
+      condition: 'excellent',
+      featured: true,
+      images: [
+        { url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop', alt: 'Ford Mustang exterior', isPrimary: true, order: 1 },
+        { url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&h=600&fit=crop', alt: 'Ford Mustang interior', isPrimary: false, order: 2 }
+      ],
+      endTime: new Date(now + 4 * 24 * 60 * 60 * 1000),
+      startTime: new Date(now - 3 * 24 * 60 * 60 * 1000),
+      seller: { ...DEFAULT_SELLER, username: 'classiccardealer' },
+      views: 567,
+      tags: ['ford', 'mustang', 'classic', 'restored', '1965', 'fastback'],
+      bids: [],
+      watchedBy: [],
+      bidCount: 0,
+      winner: null
+    },
+    '507f1f77bcf86cd799439023': {
+      _id: '507f1f77bcf86cd799439023',
+      title: 'Original Picasso Lithograph - "The Dove" 1949',
+      description: 'Original Picasso lithograph created for the World Peace Congress in Paris.',
+      category: 'Art',
+      subcategory: 'Prints & Lithographs',
+      startingPrice: 15000,
+      currentBid: 18500,
+      bidIncrement: 500,
+      status: 'active',
+      condition: 'excellent',
+      featured: true,
+      images: [
+        { url: 'https://images.unsplash.com/photo-1578321272176-b7bbc0679853?w=800&h=600&fit=crop', alt: 'Picasso lithograph', isPrimary: true, order: 1 },
+        { url: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=800&h=600&fit=crop', alt: 'Picasso signature detail', isPrimary: false, order: 2 }
+      ],
+      endTime: new Date(now + 2 * 24 * 60 * 60 * 1000),
+      startTime: new Date(now - 4 * 24 * 60 * 60 * 1000),
+      seller: { ...DEFAULT_SELLER, username: 'artgallery' },
+      views: 423,
+      tags: ['picasso', 'lithograph', 'peace', 'dove', 'original', 'modern-art'],
+      bids: [],
+      watchedBy: [],
+      bidCount: 0,
+      winner: null
+    }
+  };
+})();
+
 function createDefaultAuction(id) {
   const now = Date.now();
   return {
     _id: id,
-    title: 'Vintage Rolex Submariner',
+    title: `Auction Item ${id}`,
     description:
-      'A beautiful vintage Rolex Submariner in excellent condition. This timepiece represents the pinnacle of Swiss watchmaking craftsmanship.',
-    category: 'Watches',
-    subcategory: 'Luxury Watches',
+      'Development placeholder auction item. Replace with real data when DB is enabled.',
+    category: 'Miscellaneous',
+    subcategory: 'General',
     startingPrice: 5000,
     currentBid: 7500,
     bidIncrement: 250,
@@ -36,7 +149,7 @@ function createDefaultAuction(id) {
     startTime: new Date(now - 24 * 60 * 60 * 1000),
     seller: { ...DEFAULT_SELLER },
     views: 156,
-    tags: ['rolex', 'vintage', 'luxury'],
+    tags: ['development', 'placeholder'],
     bids: [
       {
         _id: 'mock_bid_initial',
@@ -53,7 +166,9 @@ function createDefaultAuction(id) {
 
 function getAuction(id) {
   if (!store.has(id)) {
-    store.set(id, createDefaultAuction(id));
+    // Seed with catalog item when available; otherwise create a generic placeholder
+    const preset = CATALOG[id];
+    store.set(id, preset ? { ...preset } : createDefaultAuction(id));
   }
   return store.get(id);
 }
@@ -95,5 +210,11 @@ module.exports = {
   incrementViews,
   placeBid,
   // List all auctions currently in the dev store
-  listAuctions: () => Array.from(store.values())
+  listAuctions: () => {
+    // Ensure catalog items are included even if not yet accessed
+    for (const id of Object.keys(CATALOG)) {
+      if (!store.has(id)) store.set(id, { ...CATALOG[id] });
+    }
+    return Array.from(store.values());
+  }
 };

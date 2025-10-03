@@ -5,7 +5,8 @@ const morgan = require('morgan');
 const session = require('express-session');
 const http = require('http');
 const { Server } = require('socket.io');
-require('dotenv').config();
+// Load environment variables without overriding those provided at runtime
+require('dotenv').config({ override: false });
 
 // Import passport configuration after dotenv is loaded
 const passport = require('./config/passport');
@@ -49,7 +50,8 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 5000;
+// Align default backend port with frontend proxy (5006)
+const PORT = process.env.BACKEND_PORT || process.env.PORT || 5006;
 
 // Connect to MongoDB
 connectDB();
