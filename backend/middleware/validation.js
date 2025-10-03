@@ -165,13 +165,29 @@ const validateCategoryCreation = [
 ];
 
 // Parameter validation
-const validateObjectId = (paramName) => [
-  param(paramName)
-    .isMongoId()
-    .withMessage(`Invalid ${paramName} ID format`),
-  
-  handleValidationErrors
-];
+// In development mode without DB connection, allow simple numeric/string IDs for mock data
+const validateObjectId = (paramName) => {
+  const validators = [];
+
+  // If running in development and not forcing DB connection, relax ID validation
+  if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+    validators.push(
+      param(paramName)
+        .trim()
+        .matches(/^[A-Za-z0-9_-]+$/)
+        .withMessage(`Invalid ${paramName} format`)
+    );
+  } else {
+    validators.push(
+      param(paramName)
+        .isMongoId()
+        .withMessage(`Invalid ${paramName} ID format`)
+    );
+  }
+
+  validators.push(handleValidationErrors);
+  return validators;
+};
 
 // Query validation
 const validatePaginationQuery = [
