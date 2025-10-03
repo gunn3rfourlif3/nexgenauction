@@ -333,6 +333,46 @@ const getBidHistory = async (req, res) => {
     const { auctionId } = req.params;
     const { limit = 20, page = 1 } = req.query;
 
+    // Development-mode fallback: use in-memory dev store
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      try {
+        const { getAuction } = require('../services/devMockStore');
+        const auction = getAuction(auctionId);
+        const allBids = Array.isArray(auction?.bids) ? auction.bids : [];
+
+        // Sort similar to production: amount desc, then time desc
+        const sorted = allBids.slice().sort((a, b) => {
+          const amountDiff = Number(b.amount || 0) - Number(a.amount || 0);
+          if (amountDiff !== 0) return amountDiff;
+          const bt = new Date(b.bidTime || b.timestamp || 0).getTime();
+          const at = new Date(a.bidTime || a.timestamp || 0).getTime();
+          return bt - at;
+        });
+
+        const l = parseInt(limit);
+        const p = parseInt(page);
+        const start = (p - 1) * l;
+        const paged = sorted.slice(start, start + l);
+        const totalBids = sorted.length;
+
+        return res.json({
+          success: true,
+          data: {
+            bids: paged,
+            pagination: {
+              currentPage: p,
+              totalPages: Math.ceil(totalBids / l),
+              totalBids,
+              hasMore: totalBids > p * l
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Dev-mode getBidHistory error:', e);
+        return res.status(500).json({ success: false, message: 'Failed to fetch bid history (development mode)' });
+      }
+    }
+
     const bids = await Bid.find({ 
       auction: auctionId, 
       isActive: true 
@@ -374,6 +414,43 @@ const getCurrentBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
 
+    // Development-mode fallback: use in-memory dev store
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      try {
+        const { getAuction } = require('../services/devMockStore');
+        const auction = getAuction(auctionId);
+        if (!auction) {
+          return res.status(404).json({ success: false, message: 'Auction not found' });
+        }
+
+        const bids = Array.isArray(auction.bids) ? auction.bids : [];
+        const currentPrice = Number(auction.currentBid ?? auction.startingPrice ?? 0);
+        const minimumNextBid = currentPrice + calculateMinimumIncrement(currentPrice);
+        const totalBids = Number(auction.bidCount ?? bids.length ?? 0);
+
+        // Find current highest bid object, if present
+        let currentBid = null;
+        if (bids.length) {
+          const maxAmount = bids.reduce((m, b) => Math.max(m, Number(b.amount || 0)), 0);
+          currentBid = bids.find(b => Number(b.amount || 0) === maxAmount) || bids[bids.length - 1];
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            currentBid,
+            currentPrice,
+            minimumNextBid,
+            totalBids,
+            minimumIncrement: calculateMinimumIncrement(currentPrice)
+          }
+        });
+      } catch (e) {
+        console.error('Dev-mode getCurrentBid error:', e);
+        return res.status(500).json({ success: false, message: 'Failed to fetch current bid (development mode)' });
+      }
+    }
+
     const highestBid = await Bid.getHighestBid(auctionId);
     const auction = await Auction.findById(auctionId);
 
@@ -413,6 +490,24 @@ const getUserBids = async (req, res) => {
   try {
     const { auctionId } = req.params;
     const userId = req.user.id;
+
+    // Development-mode fallback: use in-memory dev store
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      try {
+        const { getAuction } = require('../services/devMockStore');
+        const auction = getAuction(auctionId);
+        const bids = Array.isArray(auction?.bids) ? auction.bids : [];
+        const userBids = bids.filter(b => {
+          const bidderId = (b.bidder && (b.bidder._id || b.bidder)) || '';
+          return bidderId.toString() === userId.toString();
+        }).sort((a, b) => new Date(b.bidTime || b.timestamp || 0).getTime() - new Date(a.bidTime || a.timestamp || 0).getTime());
+
+        return res.json({ success: true, data: { bids: userBids } });
+      } catch (e) {
+        console.error('Dev-mode getUserBids error:', e);
+        return res.status(500).json({ success: false, message: 'Failed to fetch user bids (development mode)' });
+      }
+    }
 
     const userBids = await Bid.getUserBids(auctionId, userId);
 
