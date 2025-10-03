@@ -34,11 +34,21 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
 
     try {
       setLoading(true);
-      const response = await api.get('/notifications/watchlist');
+      const response = await api.get('/auctions/my/notifications');
       if (response.status === 200) {
-        const data = response.data?.data || response.data || {};
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        const payload = response.data?.data || response.data || {};
+        const raw = payload.notifications || [];
+        const normalized = (Array.isArray(raw) ? raw : []).map((n: any) => ({
+          id: n._id || n.id,
+          auctionId: n.auctionId,
+          auctionTitle: n.auctionTitle,
+          type: n.type === 'price_drop' ? 'price_change' : n.type,
+          message: n.message,
+          timestamp: n.createdAt || n.timestamp,
+          read: !!n.read
+        }));
+        setNotifications(normalized);
+        setUnreadCount(normalized.filter(n => !n.read).length);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -52,14 +62,8 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
     if (!user) return;
 
     try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
+      const response = await api.put(`/auctions/notifications/${notificationId}/read`);
+      if (response.status === 200) {
         setNotifications(prev => 
           prev.map(notif => 
             notif.id === notificationId ? { ...notif, read: true } : notif
@@ -77,14 +81,8 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
     if (!user || unreadCount === 0) return;
 
     try {
-      const response = await fetch('/api/notifications/watchlist/read-all', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
+      const response = await api.put('/auctions/notifications/read-all');
+      if (response.status === 200) {
         setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
         setUnreadCount(0);
       }
@@ -114,6 +112,8 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
       case 'outbid':
         return <Gavel className="w-4 h-4 text-red-500" />;
       case 'price_change':
+        return <DollarSign className="w-4 h-4 text-green-500" />;
+      case 'price_drop':
         return <DollarSign className="w-4 h-4 text-green-500" />;
       case 'status_change':
         return <Bell className="w-4 h-4 text-blue-500" />;

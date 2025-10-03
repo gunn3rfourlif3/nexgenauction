@@ -5,6 +5,10 @@ class SocketService {
     this.socket = null;
     this.isConnected = false;
     this.listeners = new Map();
+    this.desiredRooms = new Set();
+    this._attemptedRelative = false;
+    this._attemptedAbsolute = false;
+    this._attemptedPollingRelative = false;
   }
 
   connect() {
@@ -12,21 +16,39 @@ class SocketService {
       return this.socket;
     }
 
-    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const devPorts = new Set(['3000', '3001', '3010', '3011', '5173']);
-    const useRelative = isDev && devPorts.has(window.location.port || '');
-
-    const serverUrl = useRelative ? '' : (process.env.REACT_APP_API_URL || '');
+    const envApiUrl = process.env.REACT_APP_API_URL || '';
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const defaultBackend = `http://${hostname}:5006`;
+    // Use absolute env URL only if explicitly absolute; otherwise fall back to backend
+    const absoluteFromEnv = /^https?:\/\//.test(envApiUrl)
+      ? envApiUrl.replace(/\/api\/?$/, '')
+      : null;
+    // Prefer relative proxy first in development; CRA proxy supports WebSocket
+    const serverUrl = '/';
+    this._attemptedAbsolute = false;
+    this._attemptedRelative = true;
+    console.log('Initializing WebSocket connection to:', '(relative same-origin via proxy)');
 
     this.socket = io(serverUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       timeout: 20000,
-      forceNew: true
+      forceNew: true,
+      path: '/socket.io',
+      withCredentials: true
     });
 
     this.socket.on('connect', () => {
       console.log('Connected to WebSocket server');
       this.isConnected = true;
+      // Ensure we join any rooms requested before connection established
+      this.desiredRooms.forEach((auctionId) => {
+        try {
+          this.socket.emit('join-auction', auctionId);
+          console.log(`Joined auction room on connect: ${auctionId}`);
+        } catch (e) {
+          // no-op
+        }
+      });
     });
 
     this.socket.on('disconnect', () => {
@@ -37,6 +59,66 @@ class SocketService {
     this.socket.on('connect_error', (error) => {
       console.error('WebSocket connection error:', error);
       this.isConnected = false;
+      // First fallback: try relative with polling-only to avoid WS upgrade issues via proxy
+      if (this._attemptedRelative && !this._attemptedPollingRelative) {
+        this._attemptedPollingRelative = true;
+        try {
+          console.log('Retrying WebSocket using relative polling-only...');
+          this.disconnect();
+          this.socket = io('/', {
+            transports: ['polling'],
+            timeout: 20000,
+            forceNew: true,
+            path: '/socket.io',
+            withCredentials: true
+          });
+          this.socket.on('connect', () => {
+            console.log('Connected to WebSocket server (relative polling-only)');
+            this.isConnected = true;
+            this.desiredRooms.forEach((auctionId) => {
+              try { this.socket.emit('join-auction', auctionId); } catch {}
+            });
+          });
+          this.socket.on('disconnect', () => { this.isConnected = false; });
+          return; // don't proceed to absolute yet
+        } catch (e) {
+          console.error('Relative polling-only retry failed:', e);
+        }
+      }
+      // Second fallback: try absolute backend URL
+      if (this._attemptedRelative && !this._attemptedAbsolute) {
+        this._attemptedAbsolute = true;
+        try {
+          console.log('Retrying WebSocket connection using absolute backend URL...');
+          this.disconnect();
+          const target = absoluteFromEnv || defaultBackend;
+          this.socket = io(target, {
+            transports: ['polling', 'websocket'],
+            timeout: 20000,
+            forceNew: true,
+            path: '/socket.io',
+            withCredentials: true
+          });
+          this.socket.on('connect', () => {
+            console.log('Connected to WebSocket server (absolute backend)');
+            this.isConnected = true;
+            this.desiredRooms.forEach((auctionId) => {
+              try { this.socket.emit('join-auction', auctionId); } catch {}
+            });
+          });
+          this.socket.on('disconnect', () => { this.isConnected = false; });
+        } catch (e) {
+          console.error('Absolute backend WebSocket retry failed:', e);
+        }
+      }
+    });
+
+    this.socket.on('reconnect', () => {
+      console.log('WebSocket reconnected');
+      this.isConnected = true;
+      this.desiredRooms.forEach((auctionId) => {
+        try { this.socket.emit('join-auction', auctionId); } catch {}
+      });
     });
 
     return this.socket;
@@ -53,17 +135,28 @@ class SocketService {
 
   // Join an auction room for real-time updates
   joinAuction(auctionId) {
+    // Record desired room so we can join upon reconnects
+    if (auctionId) this.desiredRooms.add(auctionId);
     if (this.socket && this.isConnected) {
-      this.socket.emit('join-auction', auctionId);
-      console.log(`Joined auction room: ${auctionId}`);
+      try {
+        this.socket.emit('join-auction', auctionId);
+        console.log(`Joined auction room: ${auctionId}`);
+      } catch (e) {
+        // no-op
+      }
     }
   }
 
   // Leave an auction room
   leaveAuction(auctionId) {
+    if (auctionId) this.desiredRooms.delete(auctionId);
     if (this.socket && this.isConnected) {
-      this.socket.emit('leave-auction', auctionId);
-      console.log(`Left auction room: ${auctionId}`);
+      try {
+        this.socket.emit('leave-auction', auctionId);
+        console.log(`Left auction room: ${auctionId}`);
+      } catch (e) {
+        // no-op
+      }
     }
   }
 

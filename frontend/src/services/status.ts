@@ -5,11 +5,14 @@ const isDevEnv = typeof window !== 'undefined' &&
 const devPorts = new Set(['3000', '3001', '3010', '3011', '5173']);
 const shouldUseRelativeApi = isDevEnv && devPorts.has(window.location.port || '');
 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const defaultBackendPort = '5005';
+const defaultBackendPort = '5006';
 
 export const checkApiStatus = async () => {
   const absoluteDevApi = `http://${hostname}:${defaultBackendPort}`;
-  const baseUrl = shouldUseRelativeApi ? '' : (process.env.REACT_APP_API_URL || absoluteDevApi);
+  const isEnvRelative = (process.env.REACT_APP_API_URL || '').startsWith('/');
+  const baseUrl = (shouldUseRelativeApi || isEnvRelative)
+    ? ''
+    : (process.env.REACT_APP_API_URL || absoluteDevApi);
   const url = `${baseUrl}/api/status`;
   
   try {

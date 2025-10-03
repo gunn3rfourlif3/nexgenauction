@@ -3,17 +3,21 @@ import axios from 'axios';
 // Prefer relative base URL in development to use CRA proxy
 const isDevEnv = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const devPorts = new Set(['3000', '3001', '3010', '3011', '5173']);
+// Development ports that are expected to proxy API requests
+// Exclude lightweight preview ports to force absolute backend URL
+const devPorts = new Set(['3000', '3001', '3002', '3003', '5173']);
 const shouldUseRelativeApi = isDevEnv && devPorts.has(window.location.port || '');
 
 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const defaultBackendPort = '5005';
+const defaultBackendPort = '5006';
 const absoluteDevApi = `http://${hostname}:${defaultBackendPort}/api`;
 
 const API_BASE_URL = (() => {
   const envUrl = process.env.REACT_APP_API_URL;
-  if (envUrl && /^https?:\/\//.test(envUrl)) return envUrl;
+  // In dev on known ports, always prefer proxy relative path
   if (shouldUseRelativeApi) return '/api';
+  // Otherwise respect explicit absolute env URL if provided
+  if (envUrl && /^https?:\/\//.test(envUrl)) return envUrl;
   return envUrl || absoluteDevApi;
 })();
 
@@ -115,6 +119,14 @@ export const apiEndpoints = {
     withdraw: (data: { amount: number; withdrawalMethod?: string }) => 
       api.post('/account/withdraw', data),
     getStats: () => api.get('/account/stats'),
+  },
+
+  // Bids endpoints
+  bids: {
+    getCurrent: (id: string) => api.get(`/bids/${id}/current`),
+    getHistory: (id: string, params?: { limit?: number; page?: number }) => 
+      api.get(`/bids/${id}/history`, { params }),
+    setAutoBid: (id: string, data: any) => api.post(`/bids/${id}/auto-bid`, data),
   },
 };
 

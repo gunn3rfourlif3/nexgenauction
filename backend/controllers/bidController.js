@@ -12,6 +12,10 @@ const BID_INCREMENT_RULES = {
   10000: 250,  // $10000+: $250 increment
 };
 
+// Anti-sniping soft-close configuration (extend end time when last-minute bids occur)
+const SOFT_CLOSE_THRESHOLD_MS = parseInt(process.env.SOFT_CLOSE_THRESHOLD_MS || '120000', 10); // 2 minutes
+const SOFT_CLOSE_EXTENSION_MS = parseInt(process.env.SOFT_CLOSE_EXTENSION_MS || '120000', 10); // extend by 2 minutes
+
 // Calculate minimum bid increment based on current price
 const calculateMinimumIncrement = (currentBid) => {
   const amount = currentBid || 0;
@@ -62,6 +66,19 @@ const placeBid = async (req, res) => {
       const bidderInfo = { _id: userId, username: req.user.username, firstName: req.user.firstName, lastName: req.user.lastName };
       const result = devPlaceBid(auctionId, bidderInfo, amount, bidType, maxAutoBid);
 
+      // Anti-sniping soft-close: extend end time if within threshold
+      try {
+        const now = Date.now();
+        const end = new Date(auction.endTime || auction.endDate).getTime();
+        const remaining = end - now;
+        if (remaining > 0 && remaining <= SOFT_CLOSE_THRESHOLD_MS) {
+          const newEnd = new Date(end + SOFT_CLOSE_EXTENSION_MS);
+          auction.endTime = newEnd;
+        }
+      } catch (e) {
+        // no-op in dev fallback
+      }
+
       // Emit real-time update to all users in the auction room
       io && io.to(`auction-${auctionId}`).emit('new-bid', {
         bid: {
@@ -76,9 +93,17 @@ const placeBid = async (req, res) => {
           bidType: result.bid.bidType
         },
         auction: {
-          currentPrice: result.auction.currentBid,
-          totalBids: result.auction.bidCount
+          currentBid: result.auction.currentBid,
+          bidCount: result.auction.bidCount,
+          endTime: result.auction.endTime
         }
+      });
+
+      // Emit auction status update for soft-close end time changes
+      io && io.to(`auction-${auctionId}`).emit('auction-update', {
+        endTime: auction.endTime,
+        currentBid: result.auction.currentBid,
+        bidCount: result.auction.bidCount
       });
 
       return res.status(201).json({
@@ -163,10 +188,17 @@ const placeBid = async (req, res) => {
     // Populate bidder information
     await newBid.populate('bidder', 'username firstName lastName');
 
-    // Update auction current price
-    auction.currentPrice = amount;
-    auction.totalBids = (auction.totalBids || 0) + 1;
+    // Update auction current bid and apply anti-sniping soft-close if needed
+    auction.currentBid = amount;
+    const now = Date.now();
+    const remaining = new Date(auction.endTime).getTime() - now;
+    if (remaining > 0 && remaining <= SOFT_CLOSE_THRESHOLD_MS) {
+      auction.endTime = new Date(new Date(auction.endTime).getTime() + SOFT_CLOSE_EXTENSION_MS);
+    }
     await auction.save();
+
+    // Compute total bids from Bid collection for accurate count
+    const totalBids = await Bid.countDocuments({ auction: auctionId, isActive: true });
 
     // Emit real-time update to all users in the auction room
     io.to(`auction-${auctionId}`).emit('new-bid', {
@@ -182,9 +214,17 @@ const placeBid = async (req, res) => {
         bidType: newBid.bidType
       },
       auction: {
-        currentPrice: auction.currentPrice,
-        totalBids: auction.totalBids
+        currentBid: auction.currentBid,
+        bidCount: totalBids,
+        endTime: auction.endTime
       }
+    });
+
+    // Emit auction status update for soft-close end time changes
+    io.to(`auction-${auctionId}`).emit('auction-update', {
+      endTime: auction.endTime,
+      currentBid: auction.currentBid,
+      bidCount: totalBids
     });
 
     // Handle auto-bidding for other users
@@ -239,11 +279,17 @@ const processAutoBids = async (auctionId, newBidAmount, excludeUserId, io) => {
         await newAutoBid.save();
         await newAutoBid.populate('bidder', 'username firstName lastName');
 
-        // Update auction
+        // Update auction current bid and apply soft-close if needed
         const auction = await Auction.findById(auctionId);
-        auction.currentPrice = nextBidAmount;
-        auction.totalBids = (auction.totalBids || 0) + 1;
+        auction.currentBid = nextBidAmount;
+        const now = Date.now();
+        const remaining = new Date(auction.endTime).getTime() - now;
+        if (remaining > 0 && remaining <= SOFT_CLOSE_THRESHOLD_MS) {
+          auction.endTime = new Date(new Date(auction.endTime).getTime() + SOFT_CLOSE_EXTENSION_MS);
+        }
         await auction.save();
+
+        const totalBids = await Bid.countDocuments({ auction: auctionId, isActive: true });
 
         // Emit auto-bid update
         io.to(`auction-${auctionId}`).emit('new-bid', {
@@ -259,9 +305,17 @@ const processAutoBids = async (auctionId, newBidAmount, excludeUserId, io) => {
             bidType: newAutoBid.bidType
           },
           auction: {
-            currentPrice: auction.currentPrice,
-            totalBids: auction.totalBids
+            currentBid: auction.currentBid,
+            bidCount: totalBids,
+            endTime: auction.endTime
           }
+        });
+
+        // Emit auction status update for soft-close end time changes
+        io.to(`auction-${auctionId}`).emit('auction-update', {
+          endTime: auction.endTime,
+          currentBid: auction.currentBid,
+          bidCount: totalBids
         });
 
         newBidAmount = nextBidAmount;
@@ -332,6 +386,7 @@ const getCurrentBid = async (req, res) => {
 
     const currentPrice = highestBid ? highestBid.amount : auction.startingPrice;
     const minimumNextBid = currentPrice + calculateMinimumIncrement(currentPrice);
+    const totalBids = await Bid.countDocuments({ auction: auctionId, isActive: true });
 
     res.json({
       success: true,
@@ -339,7 +394,7 @@ const getCurrentBid = async (req, res) => {
         currentBid: highestBid,
         currentPrice,
         minimumNextBid,
-        totalBids: auction.totalBids || 0,
+        totalBids,
         minimumIncrement: calculateMinimumIncrement(currentPrice)
       }
     });

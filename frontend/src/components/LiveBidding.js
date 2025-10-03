@@ -95,8 +95,8 @@ const LiveBidding = () => {
       setLoading(true);
       const [auctionResponse, currentBidRes, historyRes] = await Promise.all([
         apiEndpoints.auctions.getById(id),
-        fetch(`/api/bids/${id}/current`).then(res => res.json()).catch(() => ({ success: false })),
-        fetch(`/api/bids/${id}/history`).then(res => res.json()).catch(() => ({ success: false }))
+        apiEndpoints.bids.getCurrent(id).then(res => res.data).catch(() => ({ success: false })),
+        apiEndpoints.bids.getHistory(id).then(res => res.data).catch(() => ({ success: false }))
       ]);
 
       const auctionData = (auctionResponse.data && auctionResponse.data.data && auctionResponse.data.data.auction)
@@ -107,14 +107,14 @@ const LiveBidding = () => {
 
       setAuction(auctionData);
 
-      const currentBidData = currentBidRes && currentBidRes.success ? currentBidRes.data?.currentBid || null : null;
+      const currentBidData = currentBidRes && currentBidRes.success ? (currentBidRes.data?.currentBid || null) : null;
       setCurrentBid(currentBidData);
 
       const historyData = historyRes && historyRes.success ? (historyRes.data?.bids || []) : [];
       setBidHistory(historyData);
       
       // Set initial bid amount to minimum bid
-      const baseAmount = currentBidData?.amount || auctionData?.startingPrice || 0;
+      const baseAmount = (currentBidData?.amount ?? auctionData?.currentBid ?? auctionData?.startingPrice ?? 0);
       const minBid = calculateMinBid(baseAmount);
       setBidAmount(minBid.toString());
       
@@ -125,6 +125,29 @@ const LiveBidding = () => {
       setLoading(false);
     }
   }, [id, calculateMinBid]);
+
+  // Lightweight refresh for bid data only (current + history)
+  const refreshBidData = useCallback(async () => {
+    try {
+      const [currentBidRes, historyRes] = await Promise.all([
+        apiEndpoints.bids.getCurrent(id).then(res => res.data).catch(() => ({ success: false })),
+        apiEndpoints.bids.getHistory(id).then(res => res.data).catch(() => ({ success: false }))
+      ]);
+
+      const currentBidData = currentBidRes && currentBidRes.success ? (currentBidRes.data?.currentBid || null) : null;
+      setCurrentBid(currentBidData);
+
+      const historyData = historyRes && historyRes.success ? (historyRes.data?.bids || []) : [];
+      setBidHistory(historyData);
+
+      // Update minimum bid amount based on refreshed state
+      const baseAmount = (currentBidData?.amount ?? auction?.currentBid ?? auction?.startingPrice ?? 0);
+      const minBid = calculateMinBid(baseAmount);
+      setBidAmount(minBid.toString());
+    } catch (e) {
+      // no-op, UI will rely on websocket or prior state
+    }
+  }, [id, auction?.startingPrice, calculateMinBid]);
 
   // Handle new bid from WebSocket
   const handleNewBid = useCallback((bidData) => {
@@ -138,6 +161,27 @@ const LiveBidding = () => {
     setSuccess('New bid received!');
     setTimeout(() => setSuccess(''), 3000);
   }, [calculateMinBid]);
+
+  // Handle auction status updates (e.g., soft-close end time extensions)
+  const handleAuctionUpdate = useCallback((data) => {
+    try {
+      if (data && data.endTime) {
+        setAuction(prev => prev ? { ...prev, endTime: data.endTime } : prev);
+        setTimeRemaining(formatTimeRemaining(data.endTime));
+        updateAuctionStatus(data.endTime);
+      }
+      // If payload includes currentBid or bidCount, sync them too
+      if (data && (data.currentBid || data.bidCount)) {
+        if (data.currentBid && typeof data.currentBid === 'number') {
+          setCurrentBid(prev => prev ? { ...prev, amount: data.currentBid } : { amount: data.currentBid });
+          const minBid = calculateMinBid(data.currentBid);
+          setBidAmount(minBid.toString());
+        }
+      }
+    } catch (e) {
+      // no-op
+    }
+  }, [updateAuctionStatus, calculateMinBid]);
 
   // Handle outbid notification
   const handleOutbid = useCallback((data) => {
@@ -155,7 +199,7 @@ const LiveBidding = () => {
   // Validate bid amount
   const validateBidAmount = (amount) => {
     const numAmount = parseFloat(amount);
-    const minBid = calculateMinBid(currentBid?.amount || auction?.startingPrice || 0);
+    const minBid = calculateMinBid(currentBid?.amount ?? auction?.currentBid ?? auction?.startingPrice ?? 0);
     
     if (isNaN(numAmount) || numAmount <= 0) {
       return { isValid: false, message: 'Please enter a valid bid amount' };
@@ -200,6 +244,9 @@ const LiveBidding = () => {
 
       setSuccess(`Bid of ${formatCurrency(pendingBidAmount)} placed successfully!`);
       setTimeout(() => setSuccess(''), 3000);
+
+      // Explicitly refresh bid data to ensure UI reflects latest state
+      await refreshBidData();
 
       // Dispatch a cross-page event so Dashboard can refresh My Bids immediately
       try {
@@ -255,6 +302,9 @@ const LiveBidding = () => {
       setIsAutoBidEnabled(true);
       setSuccess(`Auto bid set to ${formatCurrency(pendingAutoBidAmount)}`);
       setTimeout(() => setSuccess(''), 3000);
+
+      // Refresh bid data to reflect any immediate changes
+      await refreshBidData();
       
     } catch (error) {
       console.error('Error setting auto bid:', error);
@@ -286,6 +336,7 @@ const LiveBidding = () => {
       socketService.onNewBid(handleNewBid);
       socketService.onOutbid(handleOutbid);
       socketService.onBidError(handleBidError);
+      socketService.onAuctionUpdate(handleAuctionUpdate);
       
       // Join auction room
       socketService.joinAuction(id);
@@ -304,7 +355,7 @@ const LiveBidding = () => {
       socketService.leaveAuction(id);
       socketService.removeAllListeners();
     };
-  }, [id, handleNewBid, handleOutbid, handleBidError, loadAuctionData]);
+  }, [id, handleNewBid, handleOutbid, handleBidError, handleAuctionUpdate, loadAuctionData]);
 
   // Update time remaining every second
   useEffect(() => {
@@ -344,7 +395,7 @@ const LiveBidding = () => {
   }
 
   const isAuctionActive = new Date(auction.endTime) > new Date();
-  const minBid = calculateMinBid(currentBid?.amount || auction.startingPrice);
+  const minBid = calculateMinBid(currentBid?.amount ?? auction.currentBid ?? auction.startingPrice);
 
   return (
     <div className="live-bidding-container">
@@ -365,7 +416,7 @@ const LiveBidding = () => {
           <div className="detail-item">
             <span className="label">Current Bid:</span>
             <span className="current-bid">
-              {currentBid ? formatCurrency(currentBid.amount) : formatCurrency(auction.startingPrice)}
+              {currentBid ? formatCurrency(currentBid.amount) : formatCurrency(auction.currentBid ?? auction.startingPrice)}
             </span>
           </div>
           <div className="detail-item">
