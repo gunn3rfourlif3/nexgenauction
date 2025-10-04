@@ -12,11 +12,13 @@ import {
   Clock,
   Award,
   Shield,
-  Plus
+  Plus,
+  Wallet
 } from 'lucide-react';
 import api, { apiEndpoints } from '../services/api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import DuplicateAuctionModal from '../components/DuplicateAuctionModal';
+import AccountSection from '../components/Account/AccountSection';
 
 interface DashboardStats {
   totalAuctions: number;
@@ -457,6 +459,7 @@ const Dashboard: React.FC = () => {
     { id: 'my-bids', label: 'My Bids', icon: DollarSign },
     { id: 'watchlist', label: 'Watchlist', icon: Heart },
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'account', label: 'Account', icon: Wallet },
     ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
   ];
 
@@ -1029,6 +1032,13 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Account Tab */}
+        {activeTab === 'account' && (
+          <div className="space-y-6">
+            <AccountSection />
+          </div>
+        )}
+
         {/* Admin Panel Tab */}
         {activeTab === 'admin' && user?.role === 'admin' && (
           <div className="space-y-6">
@@ -1164,7 +1174,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Placeholder content for other tabs */}
-        {activeTab !== 'overview' && activeTab !== 'profile' && activeTab !== 'admin' && (
+        {activeTab !== 'overview' && activeTab !== 'profile' && activeTab !== 'admin' && activeTab !== 'account' && (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <h3 className="text-xl font-medium text-gray-900 mb-4">
               {tabs.find(tab => tab.id === activeTab)?.label}

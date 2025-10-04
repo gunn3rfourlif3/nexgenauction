@@ -212,7 +212,6 @@ const Profile: React.FC = () => {
   const tabs = [
     { id: 'profile', name: 'Profile Information', icon: '👤' },
     { id: 'security', name: 'Security', icon: '🔒' },
-    { id: 'account', name: 'Account Management', icon: '💰' },
     { id: 'accounts', name: 'Linked Accounts', icon: '🔗' }
   ];
 
@@ -480,9 +479,7 @@ const Profile: React.FC = () => {
               </form>
             )}
 
-            {activeTab === 'account' && (
-              <AccountSection />
-            )}
+            {/* Account management moved to Dashboard */}
 
             {activeTab === 'accounts' && (
               <div className="space-y-6">
