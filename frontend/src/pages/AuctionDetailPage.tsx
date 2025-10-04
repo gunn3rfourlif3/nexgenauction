@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AuctionDetail from '../components/AuctionDetail';
 import { apiEndpoints } from '../services/api';
+import { normalizeIds } from '../utils/idUtils';
 import BidConfirmationModal from '../components/BidConfirmationModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
@@ -64,7 +65,7 @@ interface Auction {
     lastName: string;
   };
   views: number;
-  watchedBy: string[];
+  watchedBy: Array<string | { _id: string }>;
   featured: boolean;
   timeRemaining?: number;
   bidCount: number;
@@ -179,14 +180,6 @@ const AuctionDetailPage: React.FC = () => {
 
       // Update the auction's watchedBy array with normalization and deduplication
       if (auction) {
-        const normalizeIds = (arr: any[]) => arr
-          .map((w: any) => {
-            if (typeof w === 'string') return w;
-            if (w && typeof w === 'object' && w._id) return w._id.toString();
-            return '';
-          })
-          .filter(Boolean);
-
         const currentIds = normalizeIds(auction.watchedBy || []);
         const watchedBy = shouldWatch
           ? Array.from(new Set([...currentIds, user._id]))
@@ -196,7 +189,7 @@ const AuctionDetailPage: React.FC = () => {
       }
 
       if (!shouldWatch && alreadyNotWatchedFlag) {
-        showNotification('This item wasn’t in your watchlist', 'info');
+        showNotification('Item was not in your watchlist', 'info');
       } else {
         showNotification(
           shouldWatch ? 'Added to watchlist' : 'Removed from watchlist',
@@ -215,14 +208,6 @@ const AuctionDetailPage: React.FC = () => {
         setIsWatched(shouldWatch);
 
         if (auction) {
-          const normalizeIds = (arr: any[]) => arr
-            .map((w: any) => {
-              if (typeof w === 'string') return w;
-              if (w && typeof w === 'object' && w._id) return w._id.toString();
-              return '';
-            })
-            .filter(Boolean);
-
           const currentIds = normalizeIds(auction.watchedBy || []);
           const watchedBy = shouldWatch
             ? Array.from(new Set([...currentIds, user._id]))

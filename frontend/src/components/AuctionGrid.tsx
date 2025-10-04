@@ -36,7 +36,8 @@ interface Auction {
     lastName: string;
   };
   views: number;
-  watchedBy: string[];
+  // Accepts either normalized string IDs or objects with _id (from backend)
+  watchedBy: Array<string | { _id: string }>; 
   featured: boolean;
   timeRemaining?: number;
   bidCount: number;

@@ -4,6 +4,8 @@ import SearchFilters from '../components/SearchFilters';
 import AuctionGrid from '../components/AuctionGrid';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { apiEndpoints } from '../services/api';
+import { normalizeIds } from '../utils/idUtils';
 
 interface Auction {
   _id: string;
@@ -151,7 +153,21 @@ const AuctionCatalog: React.FC = () => {
       }
 
       const data = await response.json();
-      setAuctions(data.data?.auctions || []);
+      // Normalize watchedBy to string IDs for consistent UI state
+      const normalizeIds = (arr: any[]) => (Array.isArray(arr) ? arr : [])
+        .map((w: any) => {
+          if (typeof w === 'string') return w;
+          if (w && typeof w === 'object' && w._id) return w._id.toString();
+          return '';
+        })
+        .filter(Boolean);
+
+      const normalizedAuctions = (data.data?.auctions || []).map((auction: any) => ({
+        ...auction,
+        watchedBy: normalizeIds(auction.watchedBy),
+      }));
+
+      setAuctions(normalizedAuctions);
       setPagination(prev => ({
         ...prev,
         currentPage: data.data?.pagination?.currentPage || 1,
@@ -176,35 +192,49 @@ const AuctionCatalog: React.FC = () => {
     }
 
     try {
-      const endpoint = `/api/auctions/${auctionId}/watchlist`;
-      const method = shouldWatch ? 'POST' : 'DELETE';
-      
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+      let alreadyNotWatchedFlag = false;
+      if (shouldWatch) {
+        await apiEndpoints.auctions.addToWatchlist(auctionId);
+      } else {
+        const { data: res } = await apiEndpoints.auctions.removeFromWatchlist(auctionId);
+        // Support both direct and nested data formats
+        alreadyNotWatchedFlag = (res && res.data && typeof res.data.alreadyNotWatched !== 'undefined')
+          ? !!res.data.alreadyNotWatched
+          : !!res?.alreadyNotWatched;
+      }
+
+      // Update the auction in the local state
+      setAuctions(prev => prev.map(auction => {
+        if (auction._id === auctionId) {
+          const current = auction.watchedBy || [];
+          const currentIds = normalizeIds(current);
+          const watchedBy = shouldWatch 
+            ? Array.from(new Set([...currentIds, user._id]))
+            : currentIds.filter((id: string) => id !== user._id);
+          return { ...auction, watchedBy };
         }
-      });
+        return auction;
+      }));
 
-      if (response.ok) {
-        // Parse response body to detect idempotent removal
-        let respBody: any = null;
-        try { respBody = await response.json(); } catch {}
-        const alreadyNotWatchedFlag = !!(respBody?.data?.alreadyNotWatched ?? respBody?.alreadyNotWatched);
+      // Idempotent feedback: if removal requested but it wasn't watched, show info
+      if (!shouldWatch && alreadyNotWatchedFlag) {
+        showNotification('Item was not in your watchlist', 'info');
+      } else {
+        showNotification(shouldWatch ? 'Added to watchlist' : 'Removed from watchlist', 'success');
+      }
+    } catch (error) {
+      const anyErr: any = error;
+      // Handle idempotent cases: treat certain 400s as success
+      const status = anyErr?.response?.status;
+      const msg: string = (anyErr?.response?.data?.message || anyErr?.response?.data?.error || '').toLowerCase();
 
-        // Update the auction in the local state
+      const isAddAlready = shouldWatch && status === 400 && msg.includes('already');
+      const isRemoveNotPresent = !shouldWatch && status === 400 && msg.includes('not in');
+
+      if (isAddAlready || isRemoveNotPresent) {
         setAuctions(prev => prev.map(auction => {
           if (auction._id === auctionId) {
             const current = auction.watchedBy || [];
-            // Normalize to string user IDs for consistent client-side state
-            const normalizeIds = (arr: any[]) => arr
-              .map((w: any) => {
-                if (typeof w === 'string') return w;
-                if (w && typeof w === 'object' && w._id) return w._id.toString();
-                return '';
-              })
-              .filter(Boolean);
             const currentIds = normalizeIds(current);
             const watchedBy = shouldWatch 
               ? Array.from(new Set([...currentIds, user._id]))
@@ -214,64 +244,10 @@ const AuctionCatalog: React.FC = () => {
           return auction;
         }));
 
-        const message = (!shouldWatch && alreadyNotWatchedFlag)
-          ? 'Item was not in your watchlist'
-          : (shouldWatch ? 'Added to watchlist' : 'Removed from watchlist');
-        const type: 'success' | 'info' = (!shouldWatch && alreadyNotWatchedFlag) ? 'info' : 'success';
-        showNotification(message, type);
-      } else {
-        // Attempt to parse error and handle idempotent cases
-        let errBody: any = {};
-        try { errBody = await response.json(); } catch {}
-        const msg = (errBody && (errBody.message || errBody.error)) || '';
-
-        // If we tried to add and it was already in watchlist, treat as success
-        if (shouldWatch && response.status === 400 && msg.toLowerCase().includes('already')) {
-          setAuctions(prev => prev.map(auction => {
-            if (auction._id === auctionId) {
-              const current = auction.watchedBy || [];
-              const normalizeIds = (arr: any[]) => arr
-                .map((w: any) => {
-                  if (typeof w === 'string') return w;
-                  if (w && typeof w === 'object' && w._id) return w._id.toString();
-                  return '';
-                })
-                .filter(Boolean);
-              const currentIds = normalizeIds(current);
-              const watchedBy = Array.from(new Set([...currentIds, user._id]));
-              return { ...auction, watchedBy };
-            }
-            return auction;
-          }));
-          showNotification('Added to watchlist', 'success');
-          return;
-        }
-
-        // If we tried to remove and it wasn’t present, treat as success
-        if (!shouldWatch && response.status === 400 && msg.toLowerCase().includes('not in')) {
-          setAuctions(prev => prev.map(auction => {
-            if (auction._id === auctionId) {
-              const current = auction.watchedBy || [];
-              const normalizeIds = (arr: any[]) => arr
-                .map((w: any) => {
-                  if (typeof w === 'string') return w;
-                  if (w && typeof w === 'object' && w._id) return w._id.toString();
-                  return '';
-                })
-                .filter(Boolean);
-              const currentIds = normalizeIds(current);
-              const watchedBy = currentIds.filter((id: string) => id !== user._id);
-              return { ...auction, watchedBy };
-            }
-            return auction;
-          }));
-          showNotification('Removed from watchlist', 'success');
-          return;
-        }
-
-        throw new Error('Failed to update watchlist');
+        showNotification(shouldWatch ? 'Added to watchlist' : 'Removed from watchlist', 'success');
+        return;
       }
-    } catch (error) {
+
       console.error('Error updating watchlist:', error);
       showNotification('Failed to update watchlist', 'error');
     }

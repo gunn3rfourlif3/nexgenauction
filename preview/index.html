@@ -16,7 +16,7 @@
     async function login() {
       const email = document.getElementById('email').value || 'artdealer@example.com';
       const password = document.getElementById('password').value || 'password123';
-      const base = (localStorage.getItem('API_URL') || 'http://localhost:5001/api');
+      const base = (localStorage.getItem('API_URL') || 'http://localhost:5006/api');
       const res = await fetch(base + '/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -35,7 +35,7 @@
     async function fetchWatchlist() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const token = localStorage.getItem('token');
-      const base = (localStorage.getItem('API_URL') || 'http://localhost:5001/api');
+      const base = (localStorage.getItem('API_URL') || 'http://localhost:5006/api');
       const url = base + '/auctions?watchedBy=' + encodeURIComponent(user?._id || '');
       const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token }});
       const json = await res.json();
@@ -75,6 +75,98 @@
         fetchWatchlist();
       }
     }
+
+    // --- Catalog preview helpers ---
+    function getApiBase() {
+      return (localStorage.getItem('API_URL') || 'http://localhost:5006/api');
+    }
+
+    function normalizeWatchedBy(arr) {
+      if (!Array.isArray(arr)) return [];
+      const toStr = (x) => {
+        if (!x) return null;
+        if (typeof x === 'string') return x;
+        if (typeof x === 'object') return x._id || x.id || null;
+        return null;
+      };
+      const strings = arr.map(toStr).filter(Boolean);
+      return Array.from(new Set(strings));
+    }
+
+    function isWatchedByUser(auction, userId) {
+      const watchedBy = normalizeWatchedBy(auction.watchedBy || auction.watchers || []);
+      return userId && watchedBy.includes(userId);
+    }
+
+    async function fetchAuctionsList() {
+      const token = localStorage.getItem('token');
+      const base = getApiBase();
+      const url = `${base}/auctions?limit=12&sortBy=endDate&sortOrder=asc`;
+      const res = await fetch(url, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+      const json = await res.json();
+      const auctions = json.data?.auctions || json.auctions || [];
+      window.previewAuctions = auctions.map(a => ({
+        ...a,
+        watchedBy: normalizeWatchedBy(a.watchedBy)
+      }));
+      document.getElementById('auctionsCount').textContent = window.previewAuctions.length;
+      renderAuctionsGrid();
+    }
+
+    async function toggleWatchlist(auctionId, currentlyWatched) {
+      const token = localStorage.getItem('token');
+      const base = getApiBase();
+      const method = currentlyWatched ? 'DELETE' : 'POST';
+      const res = await fetch(`${base}/auctions/${auctionId}/watchlist`, {
+        method,
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+      // Best-effort update; re-fetch to reflect authoritative state
+      await fetchAuctionsList();
+    }
+
+    function renderAuctionsGrid() {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user?._id;
+      const container = document.getElementById('auctionsGrid');
+      const auctions = window.previewAuctions || [];
+      container.innerHTML = '';
+      if (!auctions.length) {
+        container.innerHTML = '<p>(no auctions found)</p>';
+        return;
+      }
+      const ul = document.createElement('ul');
+      ul.style.listStyle = 'none';
+      ul.style.padding = '0';
+      auctions.forEach(a => {
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.alignItems = 'center';
+        li.style.justifyContent = 'space-between';
+        li.style.borderBottom = '1px solid #eee';
+        li.style.padding = '.5rem 0';
+
+        const info = document.createElement('div');
+        info.innerHTML = `<strong>${a.title || a.name || a._id}</strong> — ${a.currentPrice ? ('$' + a.currentPrice) : ''}`;
+        li.appendChild(info);
+
+        const btn = document.createElement('button');
+        const watched = isWatchedByUser(a, userId);
+        btn.textContent = watched ? '♥' : '♡';
+        btn.style.fontSize = '20px';
+        btn.style.lineHeight = '20px';
+        btn.style.border = 'none';
+        btn.style.background = 'transparent';
+        btn.style.cursor = 'pointer';
+        btn.style.color = watched ? '#e0245e' : '#444';
+        btn.title = watched ? 'Remove from watchlist' : 'Add to watchlist';
+        btn.addEventListener('click', () => toggleWatchlist(a._id, watched));
+        li.appendChild(btn);
+
+        ul.appendChild(li);
+      });
+      container.appendChild(ul);
+    }
   </script>
 </head>
 <body>
@@ -106,6 +198,16 @@
     </div>
     <pre id="watchActionOut">(watchlist add/remove response)</pre>
     <pre id="watchOut">(watchlist auctions)</pre>
+  </div>
+
+  <div class="card" style="margin-top:1rem;">
+    <h2>Auctions Catalog Preview</h2>
+    <div class="row">
+      <button onclick="fetchAuctionsList()">Fetch Auctions</button>
+      <div>Items: <strong id="auctionsCount">0</strong></div>
+    </div>
+    <div id="auctionsGrid" style="margin-top:.5rem;"></div>
+    <small>Tip: Login first so hearts reflect your watchlist.</small>
   </div>
 </body>
 </html>

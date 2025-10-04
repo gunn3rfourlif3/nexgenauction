@@ -38,7 +38,7 @@ interface Auction {
     lastName: string;
   };
   views: number;
-  watchedBy: string[];
+  watchedBy: Array<string | { _id: string }>;
   featured: boolean;
   timeRemaining?: number;
   bidCount: number;
