@@ -459,7 +459,7 @@ const Dashboard: React.FC = () => {
     { id: 'my-bids', label: 'My Bids', icon: DollarSign },
     { id: 'watchlist', label: 'Watchlist', icon: Heart },
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'account', label: 'Account', icon: Wallet },
+    { id: 'account', label: 'Account Management', icon: Wallet },
     ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
   ];
 
@@ -1035,7 +1035,15 @@ const Dashboard: React.FC = () => {
         {/* Account Tab */}
         {activeTab === 'account' && (
           <div className="space-y-6">
-            <AccountSection />
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Wallet className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-900">Account Management</h3>
+              </div>
+              <AccountSection />
+            </div>
           </div>
         )}
 
