@@ -99,15 +99,20 @@ const Dashboard: React.FC = () => {
       const userBids = bidsResponse.data.data.auctions;
       setMyBids(userBids);
 
-      // Fetch watchlist (assuming we have this endpoint)
+      // Fetch watchlist via dedicated endpoint
       let userWatchlist: Auction[] = [];
+      let watchlistTotalItems = 0;
       try {
-        const watchlistResponse = await apiEndpoints.auctions.getAll({ watchedBy: user?._id });
-        userWatchlist = watchlistResponse.data.data.auctions || [];
+        const watchlistResponse = await apiEndpoints.auctions.getUserWatchlist({ page: 1, limit: 12 });
+        const data = watchlistResponse.data?.data || watchlistResponse.data || {};
+        userWatchlist = data.auctions || [];
+        const pagination = data.pagination || {};
+        watchlistTotalItems = Number(pagination.totalItems || userWatchlist.length || 0);
         setWatchlist(userWatchlist);
       } catch (error) {
         console.log('Watchlist fetch failed, using empty array');
         userWatchlist = [];
+        watchlistTotalItems = 0;
         setWatchlist([]);
       }
 
@@ -129,7 +134,7 @@ const Dashboard: React.FC = () => {
         totalAuctions: userAuctions.length,
         activeAuctions,
         totalBids: totalUserBids,
-        watchlistCount: userWatchlist.length,
+        watchlistCount: watchlistTotalItems,
         wonAuctions,
         totalEarnings
       });

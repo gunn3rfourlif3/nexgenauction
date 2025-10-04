@@ -94,6 +94,7 @@ export const apiEndpoints = {
     placeBid: (id: string, data: any) => api.post(`/bids/${id}/place`, data),
     getUserAuctions: () => api.get('/auctions/my/selling'),
     getUserBids: () => api.get('/auctions/my/bidding'),
+    getUserWatchlist: (params?: any) => api.get('/auctions/my/watchlist', { params }),
     addToWatchlist: (id: string) => api.post(`/auctions/${id}/watchlist`),
     removeFromWatchlist: (id: string) => api.delete(`/auctions/${id}/watchlist`),
   },
