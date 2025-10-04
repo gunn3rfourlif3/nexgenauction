@@ -67,7 +67,7 @@ interface FilterOptions {
 const AuctionCatalog: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { showNotification } = useNotification();
 
   const [auctions, setAuctions] = useState<Auction[]>([]);
@@ -292,6 +292,7 @@ const AuctionCatalog: React.FC = () => {
         categories={categories}
         loading={loading}
         onSearch={handleSearch}
+        showSearch={!!isAuthenticated}
       />
 
       {/* Main Content */}

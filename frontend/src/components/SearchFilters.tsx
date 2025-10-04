@@ -29,6 +29,7 @@ interface SearchFiltersProps {
   categories?: Category[];
   loading?: boolean;
   onSearch?: () => void;
+  showSearch?: boolean;
 }
 
 const SearchFilters: React.FC<SearchFiltersProps> = ({
@@ -36,7 +37,8 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
   onFiltersChange,
   categories = [],
   loading = false,
-  onSearch
+  onSearch,
+  showSearch = true
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -112,29 +114,31 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
     <div className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 py-4">
         {/* Search Bar */}
-        <form onSubmit={handleSearch} className="mb-4">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+        {showSearch && (
+          <form onSubmit={handleSearch} className="mb-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                placeholder="Search auctions by title, description, or tags..."
+                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mr-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors duration-200"
+                >
+                  {loading ? 'Searching...' : 'Search'}
+                </button>
+              </div>
             </div>
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-              placeholder="Search auctions by title, description, or tags..."
-              className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center">
-              <button
-                type="submit"
-                disabled={loading}
-                className="mr-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors duration-200"
-              >
-                {loading ? 'Searching...' : 'Search'}
-              </button>
-            </div>
-          </div>
-        </form>
+          </form>
+        )}
 
         {/* Filter Toggle */}
         <div className="flex items-center justify-between mb-4">
