@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <style>
+      .stroke{fill:none;stroke:#3fb5d0;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+  </defs>
+  <path class="stroke" d="M28 18l12 12"/>
+  <path class="stroke" d="M34 12l12 12"/>
+  <path class="stroke" d="M20 30l22 22"/>
+  <path class="stroke" d="M10 52h24"/>
+  <circle cx="38" cy="26" r="2" fill="#3fb5d0"/>
+</svg>

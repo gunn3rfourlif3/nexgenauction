@@ -1,4 +1,4 @@
-# NexGenAuction
+# Nexus Auctions
 
 A modern auction platform built with React, Node.js, MongoDB, and Tailwind CSS.
 
@@ -12,7 +12,7 @@ A modern auction platform built with React, Node.js, MongoDB, and Tailwind CSS.
 ## Project Structure
 
 ```
-NexGenAuction/
+NexusAuctions/
 ├── frontend/          # React frontend application
 ├── backend/           # Node.js backend API
 └── README.md         # Project documentation

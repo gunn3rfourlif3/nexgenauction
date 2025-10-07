@@ -431,7 +431,7 @@ const Dashboard: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-black"></div>
       </div>
     );
   }
@@ -444,7 +444,7 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-600 mb-6">Please log in to access your dashboard.</p>
           <a
             href="/login"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-900"
           >
             Sign In
           </a>
@@ -465,11 +465,11 @@ const Dashboard: React.FC = () => {
     ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
   ];
 
-  const StatCard = ({ title, value, icon: Icon, color = 'blue' }: any) => (
+  const StatCard = ({ title, value, icon: Icon }: any) => (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center">
-        <div className={`flex-shrink-0 p-3 rounded-lg bg-${color}-100`}>
-          <Icon className={`w-6 h-6 text-${color}-600`} />
+        <div className="flex-shrink-0 p-3 rounded-lg bg-gray-100">
+          <Icon className="w-6 h-6 text-black" />
         </div>
         <div className="ml-4">
           <p className="text-sm font-medium text-gray-600">{title}</p>
@@ -503,7 +503,7 @@ const Dashboard: React.FC = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-black text-black'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -576,7 +576,7 @@ const Dashboard: React.FC = () => {
               <div className="p-6">
                 {loading ? (
                   <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -631,7 +631,7 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               {loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
                 </div>
               ) : myAuctions.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -675,15 +675,7 @@ const Dashboard: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                               auction.status === 'active' 
-                                 ? 'bg-green-100 text-green-800'
-                                 : auction.status === 'ended'
-                                 ? 'bg-red-100 text-red-800'
-                                 : auction.status === 'paused'
-                                 ? 'bg-orange-100 text-orange-800'
-                                 : 'bg-yellow-100 text-yellow-800'
-                             }`}>
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-black`}>
                               {auction.status}
                             </span>
                           </td>
@@ -701,7 +693,7 @@ const Dashboard: React.FC = () => {
                               {/* View Button */}
                               <button 
                                 onClick={() => handleViewAuction(auction._id)}
-                                className="text-blue-600 hover:text-blue-900 transition-colors"
+                                className="text-black hover:text-gray-900 transition-colors"
                                 title="View auction details"
                               >
                                 View
@@ -711,7 +703,7 @@ const Dashboard: React.FC = () => {
                               {canEditAuction(auction) ? (
                                 <button 
                                   onClick={() => handleEditAuction(auction._id)}
-                                  className="text-green-600 hover:text-green-900 transition-colors"
+                                  className="text-black hover:text-gray-900 transition-colors"
                                   title="Edit auction"
                                 >
                                   Edit
@@ -942,10 +934,10 @@ const Dashboard: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               bid.winner?._id === user?._id
-                                ? 'bg-green-100 text-green-800'
+                                ? 'bg-black text-white'
                                 : bid.status === 'active'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-gray-100 text-gray-800'
+                                ? 'bg-gray-900 text-white'
+                                : 'bg-gray-200 text-black'
                             }`}>
                               {bid.winner?._id === user?._id ? 'Won' : bid.status}
                             </span>
@@ -954,7 +946,7 @@ const Dashboard: React.FC = () => {
                             {formatTimeRemaining(bid.endTime)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button className="text-blue-600 hover:text-blue-900">
+                            <button className="text-black hover:text-gray-900">
                               View Auction
                             </button>
                           </td>
@@ -970,7 +962,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-gray-500 mb-6">Start bidding on auctions that interest you.</p>
                   <a
                     href="/auctions"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
+                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-900 transition-colors inline-block"
                   >
                     Browse Auctions
                   </a>
@@ -988,7 +980,7 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow">
               {loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
                 </div>
               ) : watchlist.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
@@ -1003,7 +995,7 @@ const Dashboard: React.FC = () => {
                         <h4 className="font-medium text-gray-900 mb-2">{auction.title}</h4>
                         <p className="text-sm text-gray-500 mb-2">{auction.category}</p>
                         <div className="flex justify-between items-center mb-3">
-                          <span className="text-lg font-bold text-green-600">
+                          <span className="text-lg font-bold text-black">
                             {formatCurrency(auction.currentBid)}
                           </span>
                           <span className="text-sm text-gray-500">
@@ -1016,7 +1008,7 @@ const Dashboard: React.FC = () => {
                           </span>
                           <button
                             onClick={() => navigate(`/auctions/${auction._id}`)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            className="text-black hover:text-gray-900 text-sm font-medium"
                           >
                             View Details
                           </button>
@@ -1032,7 +1024,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-gray-500 mb-6">Add auctions to your watchlist to keep track of them.</p>
                   <a
                     href="/auctions"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
+                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-900 transition-colors inline-block"
                   >
                     Browse Auctions
                   </a>
@@ -1143,7 +1135,7 @@ const Dashboard: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Shield className="w-6 h-6 text-blue-600" />
+                <Shield className="w-6 h-6 text-black" />
                 <h3 className="text-xl font-medium text-gray-900">Admin Panel</h3>
               </div>
               
@@ -1151,8 +1143,8 @@ const Dashboard: React.FC = () => {
                 {/* Create Auction Card */}
                 <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Plus className="w-5 h-5 text-green-600" />
+                    <div className="p-2 bg-gray-200 rounded-lg">
+                      <Plus className="w-5 h-5 text-black" />
                     </div>
                     <h4 className="font-medium text-gray-900">Create Auction</h4>
                   </div>
@@ -1191,8 +1183,8 @@ const Dashboard: React.FC = () => {
                 {/* User Management Card */}
                 <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <User className="w-5 h-5 text-purple-600" />
+                    <div className="p-2 bg-gray-200 rounded-lg">
+                      <User className="w-5 h-5 text-black" />
                     </div>
                     <h4 className="font-medium text-gray-900">User Management</h4>
                   </div>

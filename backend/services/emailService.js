@@ -165,7 +165,7 @@ class EmailService {
             <p>If you didn't create an account with us, please ignore this email.</p>
           </div>
           <div class="footer">
-            <p>&copy; 2024 NexGenAuction. All rights reserved.</p>
+            <p>&copy; 2024 Nexus Auctions. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -209,7 +209,7 @@ class EmailService {
             <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
           </div>
           <div class="footer">
-            <p>&copy; 2024 NexGenAuction. All rights reserved.</p>
+            <p>&copy; 2024 Nexus Auctions. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -247,7 +247,7 @@ class EmailService {
             <p style="word-break: break-all; color: #10b981;">${auctionUrl}</p>
           </div>
           <div class="footer">
-            <p>&copy; 2024 NexGenAuction. All rights reserved.</p>
+            <p>&copy; 2024 Nexus Auctions. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -286,7 +286,7 @@ class EmailService {
             <p style="word-break: break-all; color: #3b82f6;">${auctionUrl}</p>
           </div>
           <div class="footer">
-            <p>&copy; 2024 NexGenAuction. All rights reserved.</p>
+            <p>&copy; 2024 Nexus Auctions. All rights reserved.</p>
           </div>
         </div>
       </body>

@@ -125,13 +125,13 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
                 placeholder="Search auctions by title, description, or tags..."
-                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black"
               />
               <div className="absolute inset-y-0 right-0 flex items-center">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="mr-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors duration-200"
+                  className="mr-2 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 transition-colors duration-200"
                 >
                   {loading ? 'Searching...' : 'Search'}
                 </button>
@@ -168,7 +168,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
               <select
                 value={filters.sortBy}
                 onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-black"
               >
                 {sortOptions.map(option => (
                   <option key={option.value} value={option.value}>
@@ -197,7 +197,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
               <select
                 value={filters.category}
                 onChange={(e) => handleFilterChange('category', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
               >
                 <option value="">All Categories</option>
                 {categories.map(category => (
@@ -237,7 +237,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
               <select
                 value={filters.condition}
                 onChange={(e) => handleFilterChange('condition', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
               >
                 {conditionOptions.map(option => (
                   <option key={option.value} value={option.value}>
@@ -276,7 +276,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
                   value={filters.minPrice}
                   onChange={(e) => handleFilterChange('minPrice', e.target.value)}
                   placeholder="Min Price"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black"
                 />
                 <span className="flex items-center text-gray-500">to</span>
                 <input
@@ -296,7 +296,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
                   type="checkbox"
                   checked={filters.featured}
                   onChange={(e) => handleFilterChange('featured', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black"
                 />
                 <span className="text-sm font-medium text-gray-700">
                   Featured Only
@@ -310,51 +310,51 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         {hasActiveFilters && (
           <div className="mt-4 flex flex-wrap gap-2">
             {filters.category && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-200 text-black rounded-full text-sm">
                 Category: {filters.category}
                 <button
                   onClick={() => handleFilterChange('category', '')}
-                  className="ml-1 hover:text-blue-600"
+                  className="ml-1 hover:text-black"
                 >
                   <X className="w-3 h-3" />
                 </button>
               </span>
             )}
             {filters.subcategory && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-200 text-black rounded-full text-sm">
                 Subcategory: {filters.subcategory}
                 <button
                   onClick={() => handleFilterChange('subcategory', '')}
-                  className="ml-1 hover:text-blue-600"
+                  className="ml-1 hover:text-black"
                 >
                   <X className="w-3 h-3" />
                 </button>
               </span>
             )}
             {filters.condition && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-200 text-black rounded-full text-sm">
                 Condition: {filters.condition}
                 <button
                   onClick={() => handleFilterChange('condition', '')}
-                  className="ml-1 hover:text-blue-600"
+                  className="ml-1 hover:text-black"
                 >
                   <X className="w-3 h-3" />
                 </button>
               </span>
             )}
             {filters.status && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-200 text-black rounded-full text-sm">
                 Status: {filters.status}
                 <button
                   onClick={() => handleFilterChange('status', '')}
-                  className="ml-1 hover:text-blue-600"
+                  className="ml-1 hover:text-black"
                 >
                   <X className="w-3 h-3" />
                 </button>
               </span>
             )}
             {(filters.minPrice || filters.maxPrice) && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-200 text-black rounded-full text-sm">
                 Price: {filters.minPrice || '0'} - {filters.maxPrice || '∞'}
                 <button
                   onClick={() => {

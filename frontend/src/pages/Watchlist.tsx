@@ -272,9 +272,9 @@ const Watchlist: React.FC = () => {
                         onClick={() => handlePageChange(pageNum)}
                         className={`px-3 py-2 text-sm font-medium rounded-md ${
                           pageNum === pagination.currentPage
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-black text-white'
                             : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                        }`}
+                      }`}
                       >
                         {pageNum}
                       </button>

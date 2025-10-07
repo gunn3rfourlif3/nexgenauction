@@ -1323,36 +1323,60 @@ const getWatchlistNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Mock notifications data - in a real app, this would come from a database
-    const mockNotifications = [
-      {
-        _id: '1',
-        auctionId: '1',
-        auctionTitle: 'Vintage Rolex Submariner',
-        type: 'ending_soon',
-        message: 'Auction ending in 2 hours',
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        read: false
-      },
-      {
-        _id: '2',
-        auctionId: '3',
-        auctionTitle: 'Original Picasso Sketch',
-        type: 'outbid',
-        message: 'You have been outbid',
-        createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-        read: false
-      },
-      {
-        _id: '3',
-        auctionId: '5',
-        auctionTitle: 'Rare Baseball Card Collection',
-        type: 'price_drop',
-        message: 'Starting bid reduced by 20%',
-        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-        read: true
+    // Generate notifications using real auction IDs from dev store when available
+    let mockNotifications = [];
+    try {
+      const { listAuctions } = require('../services/devMockStore');
+      const auctions = typeof listAuctions === 'function' ? listAuctions() : [];
+      const picks = auctions.slice(0, 3);
+
+      if (picks.length) {
+        mockNotifications = picks.map((a, idx) => ({
+          _id: `${idx + 1}`,
+          auctionId: (a._id || a.id || '').toString(),
+          auctionTitle: a.title || a.name || 'Auction',
+          type: idx === 0 ? 'ending_soon' : idx === 1 ? 'outbid' : 'price_drop',
+          message: idx === 0
+            ? 'Auction ending in 2 hours'
+            : idx === 1
+              ? 'You have been outbid'
+              : 'Starting bid reduced by 20%',
+          createdAt: new Date(Date.now() - (idx === 0 ? 2 * 60 * 60 * 1000 : idx === 1 ? 30 * 60 * 1000 : 4 * 60 * 60 * 1000)),
+          read: idx === 2
+        }));
       }
-    ];
+    } catch (e) {
+      // Fallback to static mock data if dev store isn't available
+      mockNotifications = [
+        {
+          _id: '1',
+          auctionId: '507f1f77bcf86cd799439011',
+          auctionTitle: 'Vintage Rolex Submariner',
+          type: 'ending_soon',
+          message: 'Auction ending in 2 hours',
+          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          read: false
+        },
+        {
+          _id: '2',
+          auctionId: '507f1f77bcf86cd799439018',
+          auctionTitle: 'Original Picasso Sketch',
+          type: 'outbid',
+          message: 'You have been outbid',
+          createdAt: new Date(Date.now() - 30 * 60 * 1000),
+          read: false
+        },
+        {
+          _id: '3',
+          auctionId: '507f1f77bcf86cd799439023',
+          auctionTitle: 'Rare Baseball Card Collection',
+          type: 'price_drop',
+          message: 'Starting bid reduced by 20%',
+          createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
+          read: true
+        }
+      ];
+    }
 
     res.json({
       success: true,

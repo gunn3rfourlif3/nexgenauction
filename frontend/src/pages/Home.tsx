@@ -58,7 +58,7 @@ const Home: React.FC = () => {
     <div className="min-h-screen">
       {/* API Status Banner */}
       {apiStatus && (
-        <div className="bg-green-100 border border-green-400 text-green-700">
+        <div className="bg-gray-100 border border-gray-400 text-gray-800">
           <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="text-center sm:text-left">
               <strong>API Connected:</strong> {apiStatus.data?.service} v{apiStatus.data?.version} - Environment: {apiStatus.data?.environment}
@@ -66,7 +66,7 @@ const Home: React.FC = () => {
             <div className="flex items-center justify-center sm:justify-end gap-2 px-2">
               <button
                 onClick={() => setShowApiDetails(v => !v)}
-                className="bg-green-200 hover:bg-green-300 text-green-800 text-sm font-medium px-3 py-1 rounded"
+                className="bg-gray-200 hover:bg-gray-300 text-black text-sm font-medium px-3 py-1 rounded"
               >
                 {showApiDetails ? 'Hide details' : 'View details'}
               </button>
@@ -74,7 +74,7 @@ const Home: React.FC = () => {
                 href="/api/status"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-white hover:bg-gray-100 text-green-800 border border-green-400 text-sm font-medium px-3 py-1 rounded"
+                className="bg-white hover:bg-gray-100 text-black border border-gray-400 text-sm font-medium px-3 py-1 rounded"
               >
                 Open raw
               </a>
@@ -127,7 +127,7 @@ const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Welcome to NexGenAuction
+              Welcome to Nexus Auctions
             </h1>
             <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
               Discover unique items, bid with confidence, and experience the future of online auctions
@@ -152,7 +152,7 @@ const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose NexGenAuction?
+              Why Choose Nexus Auctions?
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Experience the next generation of online auctions with our cutting-edge platform
@@ -262,7 +262,7 @@ const Home: React.FC = () => {
             Ready to Start Bidding?
           </h2>
           <p className="text-xl mb-8 max-w-2xl mx-auto">
-            Join thousands of satisfied users who trust NexGenAuction for their buying and selling needs
+            Join thousands of satisfied users who trust Nexus Auctions for their buying and selling needs
           </p>
           <button className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors duration-200">
             Get Started Today

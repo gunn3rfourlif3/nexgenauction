@@ -40,16 +40,16 @@ const LiveBidding = () => {
     return currentAmount + 250;
   }, []);
 
-  // Format currency
-  const formatCurrency = (amount) => {
+  // Format currency (memoized)
+  const formatCurrency = useCallback((amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
     }).format(amount);
-  };
+  }, []);
 
-  // Format time remaining without state updates
-  const formatTimeRemaining = (endTime) => {
+  // Format time remaining without state updates (memoized)
+  const formatTimeRemaining = useCallback((endTime) => {
     const now = new Date();
     const end = new Date(endTime);
     const diff = end - now;
@@ -67,7 +67,7 @@ const LiveBidding = () => {
     if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
     if (minutes > 0) return `${minutes}m ${seconds}s`;
     return `${seconds}s`;
-  };
+  }, []);
 
   // Update auction status and urgency based on time remaining
   const updateAuctionStatus = useCallback((endTime) => {
@@ -148,7 +148,7 @@ const LiveBidding = () => {
     } catch (e) {
       // no-op, UI will rely on websocket or prior state
     }
-  }, [id, auction?.startingPrice, calculateMinBid]);
+  }, [id, auction?.currentBid, auction?.startingPrice, calculateMinBid]);
 
   // Handle new bid from WebSocket
   const handleNewBid = useCallback((bidData) => {
@@ -182,13 +182,13 @@ const LiveBidding = () => {
     } catch (e) {
       // no-op
     }
-  }, [updateAuctionStatus, calculateMinBid]);
+  }, [updateAuctionStatus, calculateMinBid, formatTimeRemaining]);
 
   // Handle outbid notification
   const handleOutbid = useCallback((data) => {
     setError(`You've been outbid! Current bid: ${formatCurrency(data.currentBid)}`);
     setTimeout(() => setError(''), 5000);
-  }, []);
+  }, [formatCurrency]);
 
   // Handle bid error
   const handleBidError = useCallback((errorData) => {
@@ -368,7 +368,7 @@ const LiveBidding = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [auction?.endTime, updateAuctionStatus]);
+  }, [auction?.endTime, updateAuctionStatus, formatTimeRemaining]);
 
   // Monitor WebSocket connection
   useEffect(() => {
@@ -419,12 +419,12 @@ const LiveBidding = () => {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-4 w-4 bg-green-600"></span>
                 </span>
-                <Zap size={16} className="text-green-600" />
+                <Zap size={16} className="text-black" />
                 Live
               </>
             ) : (
               <>
-                <span className="h-4 w-4 rounded-full bg-red-600"></span>
+                <span className="h-4 w-4 rounded-full bg-black"></span>
                 Disconnected
               </>
             )}
@@ -447,11 +447,9 @@ const LiveBidding = () => {
               <span
                 className={`text-base font-medium ${
                   auctionStatus === 'ending_soon'
-                    ? urgencyLevel === 'critical'
-                      ? 'text-red-600'
-                      : 'text-orange-600'
+                    ? 'text-black'
                     : auctionStatus === 'ended'
-                      ? 'text-gray-600'
+                      ? 'text-gray-700'
                       : 'text-gray-800'
                 }`}
               >
@@ -459,15 +457,13 @@ const LiveBidding = () => {
               </span>
               {auctionStatus === 'ending_soon' && (
                 <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    urgencyLevel === 'critical' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
-                  }`}
+                  className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-black`}
                 >
                   {urgencyLevel === 'critical' ? 'Ending Soon' : 'Ending Soon'}
                 </span>
               )}
               {auctionStatus === 'ended' && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Auction Ended</span>
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-black">Auction Ended</span>
               )}
             </div>
           </div>
@@ -526,7 +522,7 @@ const LiveBidding = () => {
               <button
                 onClick={placeBid}
                 disabled={bidding || !bidAmount}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 <span className="flex items-center gap-2"><Gavel size={16} /> {bidding ? 'Placing...' : 'Place Bid'}</span>
               </button>
@@ -566,7 +562,7 @@ const LiveBidding = () => {
       )}
 
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gavel size={18} className="text-gray-700" /> Bid History</h3>
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gavel size={18} className="text-black" /> Bid History</h3>
         <div className="divide-y max-h-[500px] overflow-y-auto pr-1">
           {bidHistory.length > 0 ? (
             bidHistory.map((bid, index) => (
@@ -575,7 +571,7 @@ const LiveBidding = () => {
                 <div className="text-sm text-gray-600 flex items-center gap-3">
                   <span className="flex items-center gap-1">
                     {bid.bidType === 'auto' ? (
-                      <Cpu size={14} className="text-purple-600" />
+                      <Cpu size={14} className="text-black" />
                     ) : (
                       <User size={14} className="text-gray-600" />
                     )}
@@ -596,7 +592,7 @@ const LiveBidding = () => {
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow p-6 w-full max-w-md">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2"><Gavel size={18} className="text-blue-600" /> Confirm Bid</h3>
+              <h3 className="text-lg font-semibold flex items-center gap-2"><Gavel size={18} className="text-black" /> Confirm Bid</h3>
             </div>
             <div className="space-y-2">
               <p>
@@ -606,7 +602,7 @@ const LiveBidding = () => {
             </div>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 onClick={confirmBid}
                 disabled={bidding}
               >
@@ -632,7 +628,7 @@ const LiveBidding = () => {
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow p-6 w-full max-w-md">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2"><Zap size={18} className="text-blue-600" /> Confirm Auto Bid</h3>
+              <h3 className="text-lg font-semibold flex items-center gap-2"><Zap size={18} className="text-black" /> Confirm Auto Bid</h3>
             </div>
             <div className="space-y-2">
               <p>

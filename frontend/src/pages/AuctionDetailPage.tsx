@@ -359,7 +359,7 @@ const AuctionDetailPage: React.FC = () => {
           <div className="space-x-4">
             <button
               onClick={() => navigate('/auctions')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+              className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-900 transition-colors duration-200"
             >
               Browse Auctions
             </button>
@@ -385,7 +385,7 @@ const AuctionDetailPage: React.FC = () => {
           <nav className="flex items-center space-x-2 text-sm text-gray-600">
             <button
               onClick={() => navigate('/auctions')}
-              className="hover:text-blue-600 transition-colors duration-200"
+              className="hover:text-black transition-colors duration-200"
             >
               Auctions
             </button>
