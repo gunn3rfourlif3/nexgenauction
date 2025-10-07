@@ -7,8 +7,8 @@ const getAuctions = async (req, res) => {
   try {
     // Check if we're in development mode without database connection
     if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      // Return enhanced mock auction data for development
-      const mockAuctions = [
+      // Return enhanced mock auction data for development (kept for reference)
+      const _unusedMockAuctions = [
         {
           _id: '507f1f77bcf86cd799439011',
           title: 'Vintage Rolex Submariner 5513 - 1970',
@@ -289,6 +289,10 @@ const getAuctions = async (req, res) => {
         }
       ];
 
+      // Replace hardcoded dev data with in-memory dev store
+      const { listAuctions } = require('../services/devMockStore');
+      const mockAuctions = listAuctions();
+
       // Basic filtering for development mode
       // If a watchedBy filter is provided in dev-mode, dynamically mark
       // a subset of mock auctions as watched by that user so the watchlist
@@ -312,7 +316,18 @@ const getAuctions = async (req, res) => {
 
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 12;
-      const { status, watchedBy } = req.query;
+      const {
+        status,
+        watchedBy,
+        category,
+        subcategory,
+        condition,
+        featured,
+        minPrice,
+        maxPrice,
+        search,
+        sort
+      } = req.query;
 
       let filtered = mockAuctions;
       if (status) {
@@ -324,6 +339,85 @@ const getAuctions = async (req, res) => {
           if (w && typeof w === 'object' && w._id) return w._id === watchedBy;
           return false;
         }));
+      }
+
+      if (category) {
+        filtered = filtered.filter(a => (a.category || '').toString() === category.toString());
+      }
+      if (subcategory) {
+        filtered = filtered.filter(a => (a.subcategory || '').toString() === subcategory.toString());
+      }
+      if (condition) {
+        filtered = filtered.filter(a => (a.condition || '').toString() === condition.toString());
+      }
+      if (typeof featured !== 'undefined') {
+        const isFeatured = featured === 'true' || featured === true;
+        filtered = filtered.filter(a => !!a.featured === isFeatured);
+      }
+
+      if (minPrice || maxPrice) {
+        const min = minPrice ? parseFloat(minPrice) : undefined;
+        const max = maxPrice ? parseFloat(maxPrice) : undefined;
+        filtered = filtered.filter(a => {
+          const sp = Number(a.startingPrice || 0);
+          const cb = Number(a.currentBid || 0);
+          const within = (price) => {
+            if (min !== undefined && price < min) return false;
+            if (max !== undefined && price > max) return false;
+            return true;
+          };
+          return within(sp) || within(cb);
+        });
+      }
+
+      if (search && String(search).trim().length > 0) {
+        const s = String(search).trim();
+        const re = new RegExp(s, 'i');
+        filtered = filtered.filter(a => {
+          const titleMatch = re.test(a.title || '');
+          const descMatch = re.test(a.description || '');
+          const subcatMatch = re.test(a.subcategory || '');
+          const tagsMatch = Array.isArray(a.tags) && a.tags.some(t => re.test(String(t)));
+          const condMatch = re.test((a.conditionReport && a.conditionReport.overall) || '');
+          return titleMatch || descMatch || subcatMatch || tagsMatch || condMatch;
+        });
+      }
+
+      if (sort && typeof sort === 'string') {
+        const desc = sort.startsWith('-');
+        const field = (desc ? sort.slice(1) : sort).trim();
+
+        if (field === 'title') {
+          filtered = filtered.slice().sort((a, b) => {
+            const at = String(a.title || '').toLowerCase();
+            const bt = String(b.title || '').toLowerCase();
+            const cmp = at.localeCompare(bt);
+            return desc ? -cmp : cmp;
+          });
+        } else {
+          const getVal = (a) => {
+            switch (field) {
+              case 'endTime':
+              case 'startTime':
+              case 'createdAt':
+                return new Date(a[field] || 0).getTime();
+              case 'currentBid':
+              case 'startingPrice':
+              case 'views':
+              case 'bidCount':
+                return Number(a[field] || 0);
+              default:
+                return a[field];
+            }
+          };
+          filtered = filtered.slice().sort((a, b) => {
+            const av = getVal(a);
+            const bv = getVal(b);
+            if (av < bv) return desc ? 1 : -1;
+            if (av > bv) return desc ? -1 : 1;
+            return 0;
+          });
+        }
       }
 
       const start = (page - 1) * limit;
@@ -366,27 +460,37 @@ const getAuctions = async (req, res) => {
     if (condition) filter.condition = condition;
     if (featured !== undefined) filter.featured = featured === 'true';
 
+    // Compose conditions without overwriting when both price and search are present
+    const andClauses = [];
+
     // Price range filter - check both starting price and current bid
     if (minPrice || maxPrice) {
       const priceFilter = {};
       if (minPrice) priceFilter.$gte = parseFloat(minPrice);
       if (maxPrice) priceFilter.$lte = parseFloat(maxPrice);
-      
-      filter.$or = [
-        { startingPrice: priceFilter },
-        { currentBid: priceFilter }
-      ];
+      andClauses.push({
+        $or: [
+          { startingPrice: priceFilter },
+          { currentBid: priceFilter }
+        ]
+      });
     }
 
     // Search filter - enhanced to include subcategory and condition report
     if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { subcategory: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
-        { 'conditionReport.overall': { $regex: search, $options: 'i' } }
-      ];
+      andClauses.push({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { subcategory: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } },
+          { 'conditionReport.overall': { $regex: search, $options: 'i' } }
+        ]
+      });
+    }
+
+    if (andClauses.length > 0) {
+      filter.$and = andClauses;
     }
 
     // Calculate pagination

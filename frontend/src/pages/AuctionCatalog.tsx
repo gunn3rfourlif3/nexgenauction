@@ -140,11 +140,29 @@ const AuctionCatalog: React.FC = () => {
       if (filters.maxPrice) params.set('maxPrice', filters.maxPrice);
       if (filters.featured) params.set('featured', 'true');
       
-      // Add pagination and sorting
+      // Add pagination
       params.set('page', page.toString());
       params.set('limit', pagination.itemsPerPage.toString());
-      params.set('sortBy', filters.sortBy);
-      params.set('sortOrder', filters.sortOrder);
+      // Map UI sortBy/sortOrder to backend single `sort` param
+      const mapSort = (sortBy: string, sortOrder: 'asc' | 'desc') => {
+        // Supported fields: createdAt, endTime, currentBid, title
+        switch (sortBy) {
+          case 'ending-soon':
+            return sortOrder === 'desc' ? '-endTime' : 'endTime';
+          case 'newest':
+            return sortOrder === 'desc' ? '-createdAt' : 'createdAt';
+          case 'price-low':
+            return 'currentBid';
+          case 'price-high':
+            return '-currentBid';
+          case 'title':
+            return sortOrder === 'desc' ? '-title' : 'title';
+          default:
+            return '-createdAt';
+        }
+      };
+      const sort = mapSort(filters.sortBy, filters.sortOrder);
+      params.set('sort', sort);
 
       const response = await fetch(`/api/auctions?${params.toString()}`);
       

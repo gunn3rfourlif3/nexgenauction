@@ -12,6 +12,7 @@ const Home: React.FC = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [showApiDetails, setShowApiDetails] = useState(false);
   const [isCheckingApi, setIsCheckingApi] = useState(false);
+  const [featuredAuctions, setFeaturedAuctions] = useState<any[]>([]);
 
   // Handle place bid for sample auctions
   const handlePlaceBid = (auctionId: number) => {
@@ -39,6 +40,51 @@ const Home: React.FC = () => {
     };
 
     checkApiStatus();
+  }, []);
+
+  useEffect(() => {
+    const loadFeaturedAuctions = async () => {
+      try {
+        // Try with desired sort first
+        let auctions: any[] = [];
+        try {
+          const res = await apiEndpoints.auctions.getAll({ featured: true, limit: 6, sort: '-views' });
+          auctions = res.data?.data?.auctions || res.data?.auctions || res.data || [];
+        } catch (primaryErr) {
+          console.warn('Primary featured fetch failed, retrying without sort:', primaryErr);
+          const res = await apiEndpoints.auctions.getAll({ featured: true, limit: 6 });
+          auctions = res.data?.data?.auctions || res.data?.auctions || res.data || [];
+        }
+
+        // Normalize dev-mode variations (images as strings, endDate -> endTime)
+        auctions = Array.isArray(auctions) ? auctions.map((a) => {
+          const copy = { ...a };
+          if (Array.isArray(copy.images) && typeof copy.images[0] === 'string') {
+            copy.images = copy.images.map((url: string, index: number) => ({
+              url,
+              alt: copy.title || 'Auction image',
+              isPrimary: index === 0,
+              caption: '',
+              order: index
+            }));
+          }
+          if (copy.endDate && !copy.endTime) {
+            try {
+              const d = new Date(copy.endDate);
+              copy.endTime = isNaN(d.getTime()) ? copy.endDate : d.toISOString();
+            } catch {
+              copy.endTime = copy.endDate;
+            }
+          }
+          return copy;
+        }) : [];
+
+        setFeaturedAuctions(auctions);
+      } catch (error) {
+        console.error('Failed to load featured auctions:', error);
+      }
+    };
+    loadFeaturedAuctions();
   }, []);
 
   const refreshApiStatus = async () => {
@@ -212,33 +258,51 @@ const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Sample auction cards */}
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-200">
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">Auction Image {item}</span>
+            {featuredAuctions.length === 0 && (
+              <div className="col-span-full text-center text-gray-600">
+                No featured auctions available right now.
+              </div>
+            )}
+            {featuredAuctions.map((a) => (
+              <div key={a._id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-200">
+                <div className="h-48 bg-gray-200">
+                  {Array.isArray(a.images) && a.images.length > 0 ? (
+                    <img
+                      src={(a.images.find((img: any) => img.isPrimary) || a.images[0])?.url}
+                      alt={(a.images.find((img: any) => img.isPrimary) || a.images[0])?.alt || a.title}
+                      className="h-48 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <span className="text-gray-500">No image</span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Sample Auction Item {item}
+                    {a.title}
                   </h3>
-                  <p className="text-gray-600 mb-4">
-                    This is a sample auction item description. Real auction data will be loaded from the backend.
+                  <p className="text-gray-600 mb-4 line-clamp-3">
+                    {a.description}
                   </p>
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-sm text-gray-500">Current Bid</span>
-                    <span className="text-lg font-bold text-primary-600">$1,{item}50</span>
+                    <span className="text-lg font-bold text-primary-600">
+                      ${typeof a.currentBid === 'number' ? a.currentBid.toLocaleString() : (a.currentBid || 0)}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm text-gray-500">Time Left</span>
-                    <span className="text-sm font-medium text-secondary-600">2d 14h 30m</span>
+                    <span className="text-sm text-gray-500">Ends</span>
+                    <span className="text-sm font-medium text-secondary-600">
+                      {a.endTime ? new Date(a.endTime).toLocaleString() : 'TBD'}
+                    </span>
                   </div>
-                  <button 
-                    onClick={() => handlePlaceBid(item)}
-                    className="w-full bg-primary-600 text-white py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
+                  <Link
+                    to={`/auctions/${a._id}`}
+                    className="w-full inline-block text-center bg-primary-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
                   >
-                    Place Bid
-                  </button>
+                    View Details
+                  </Link>
                 </div>
               </div>
             ))}

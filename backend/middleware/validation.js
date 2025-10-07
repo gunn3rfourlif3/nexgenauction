@@ -203,7 +203,16 @@ const validatePaginationQuery = [
   
   query('sort')
     .optional()
-    .isIn(['createdAt', '-createdAt', 'endTime', '-endTime', 'currentBid', '-currentBid', 'title', '-title'])
+    .isIn([
+      'createdAt', '-createdAt',
+      'startTime', '-startTime',
+      'endTime', '-endTime',
+      'currentBid', '-currentBid',
+      'startingPrice', '-startingPrice',
+      'views', '-views',
+      'bidCount', '-bidCount',
+      'title', '-title'
+    ])
     .withMessage('Invalid sort parameter'),
   
   handleValidationErrors
