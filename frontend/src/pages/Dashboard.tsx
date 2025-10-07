@@ -458,6 +458,8 @@ const Dashboard: React.FC = () => {
     { id: 'my-auctions', label: 'My Auctions', icon: Gavel },
     { id: 'my-bids', label: 'My Bids', icon: DollarSign },
     { id: 'watchlist', label: 'Watchlist', icon: Heart },
+    { id: 'history', label: 'Auction History', icon: Clock },
+    { id: 'disputes', label: 'Disputes', icon: Shield },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'account', label: 'Account Management', icon: Wallet },
     ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
@@ -787,6 +789,95 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Auction History Tab */}
+        {activeTab === 'history' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Auction History</h3>
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const res = await apiEndpoints.auctions.getUserHistory({ page: 1, limit: 20 });
+                    const data = res.data?.data || res.data || {};
+                    const endedAuctions = data.auctions || [];
+                    setMyAuctions(endedAuctions);
+                  } catch (e) {
+                    showNotification('Failed to load auction history', 'error');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60"
+                disabled={loading}
+              >
+                {loading ? 'Loading…' : 'Refresh'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myAuctions.length === 0 && !loading && (
+                <p className="text-gray-500">No ended auctions found.</p>
+              )}
+              {myAuctions.map((auction) => (
+                <div key={auction._id} className="bg-white rounded-lg shadow p-4">
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={auction.images?.find(img => img.isPrimary)?.url || '/placeholder-image.jpg'}
+                      alt={auction.title}
+                      className="w-16 h-16 rounded object-cover"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">{auction.title}</p>
+                      <p className="text-sm text-gray-600">Final bid: {formatCurrency(auction.currentBid)}</p>
+                      <p className="text-xs text-gray-500">Ended: {new Date(auction.endTime).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Disputes Tab */}
+        {activeTab === 'disputes' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Payment Disputes</h3>
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const res = await apiEndpoints.payments.getHistory({ page: 1, limit: 20, status: 'disputed' });
+                    const data = res.data?.data || res.data || {};
+                    const payments = data.payments || [];
+                    // Store in actionLoading map temporarily for display; ideally add dedicated state
+                    setActionLoading(prev => ({ ...prev, _disputes_count: payments.length }));
+                  } catch (e) {
+                    showNotification('Failed to load disputes', 'error');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60"
+                disabled={loading}
+              >
+                {loading ? 'Loading…' : 'Refresh'}
+              </button>
+            </div>
+
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h4 className="text-lg font-medium text-gray-900">Your open disputes</h4>
+                <p className="text-sm text-gray-500">Count: {actionLoading._disputes_count || 0}</p>
+              </div>
+              <div className="p-6">
+                <p className="text-gray-600">Dispute list and actions will appear here.</p>
+              </div>
             </div>
           </div>
         )}

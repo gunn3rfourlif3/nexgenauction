@@ -31,6 +31,52 @@ class EmailService {
     });
   }
 
+  async sendAuctionWinnerEmail(email, { firstName, auctionTitle, amount, auctionId }) {
+    const auctionUrl = `${process.env.FRONTEND_URL}/auction/${auctionId}`;
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'noreply@nexgenauction.com',
+      to: email,
+      subject: `You won the auction: ${auctionTitle}!`,
+      html: this.getWinnerEmailTemplate(firstName, auctionTitle, amount, auctionUrl)
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Auction winner email sent:', info.messageId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
+      }
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error('Error sending auction winner email:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async sendSellerAuctionEndedEmail(email, { firstName, auctionTitle, amount, auctionId, winnerName }) {
+    const auctionUrl = `${process.env.FRONTEND_URL}/auction/${auctionId}`;
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'noreply@nexgenauction.com',
+      to: email,
+      subject: `Your auction has ended: ${auctionTitle}`,
+      html: this.getSellerAuctionEndedTemplate(firstName, auctionTitle, amount, auctionUrl, winnerName)
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Seller auction-ended email sent:', info.messageId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
+      }
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error('Error sending seller auction-ended email:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   generateVerificationToken() {
     return crypto.randomBytes(32).toString('hex');
   }
@@ -161,6 +207,83 @@ class EmailService {
               <strong>Important:</strong> This password reset link will expire in 1 hour for security reasons.
             </div>
             <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; 2024 NexGenAuction. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  getWinnerEmailTemplate(firstName, auctionTitle, amount, auctionUrl) {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Congratulations! You won the auction</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Congratulations, ${firstName}!</h1>
+          </div>
+          <div class="content">
+            <p>You won the auction <strong>${auctionTitle}</strong> with a winning bid of <strong>$${amount}</strong>.</p>
+            <p>Visit the auction page to review next steps and complete payment.</p>
+            <a href="${auctionUrl}" class="button">View Auction</a>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #10b981;">${auctionUrl}</p>
+          </div>
+          <div class="footer">
+            <p>&copy; 2024 NexGenAuction. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  getSellerAuctionEndedTemplate(firstName, auctionTitle, amount, auctionUrl, winnerName) {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Your Auction Has Ended</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Your Auction Ended</h1>
+          </div>
+          <div class="content">
+            <p>Your auction <strong>${auctionTitle}</strong> has ended.</p>
+            <p>The winning bid was <strong>$${amount}</strong> by <strong>${winnerName}</strong>.</p>
+            <p>Visit the auction page to proceed with fulfillment and messaging.</p>
+            <a href="${auctionUrl}" class="button">View Auction</a>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #3b82f6;">${auctionUrl}</p>
           </div>
           <div class="footer">
             <p>&copy; 2024 NexGenAuction. All rights reserved.</p>

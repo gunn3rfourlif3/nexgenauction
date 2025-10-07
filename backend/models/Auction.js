@@ -148,6 +148,10 @@ const auctionSchema = new mongoose.Schema({
     type: Number,
     default: null
   },
+  notifications: {
+    winnerNotified: { type: Boolean, default: false },
+    sellerNotified: { type: Boolean, default: false }
+  },
   shippingInfo: {
     weight: Number,
     dimensions: {

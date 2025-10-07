@@ -5,6 +5,9 @@ const {
   confirmPayment,
   getPayment,
   getPaymentHistory,
+  openDispute,
+  getDispute,
+  resolveDispute,
   releaseEscrow,
   requestRefund,
   confirmDelivery,
@@ -89,6 +92,34 @@ const validateRefundRequest = [
   handleValidationErrors
 ];
 
+// Dispute open validation
+const validateDisputeOpen = [
+  param('paymentId')
+    .isLength({ min: 1 })
+    .withMessage('Payment ID is required'),
+  body('reason')
+    .optional()
+    .isLength({ min: 3, max: 500 })
+    .withMessage('Reason must be between 3 and 500 characters'),
+  handleValidationErrors
+];
+
+// Dispute resolve validation
+const validateDisputeResolve = [
+  param('paymentId')
+    .isLength({ min: 1 })
+    .withMessage('Payment ID is required'),
+  body('status')
+    .optional()
+    .isIn(['open', 'under_review', 'resolved', 'closed'])
+    .withMessage('Invalid dispute status'),
+  body('resolution')
+    .optional()
+    .isLength({ min: 3, max: 1000 })
+    .withMessage('Resolution must be between 3 and 1000 characters'),
+  handleValidationErrors
+];
+
 // Delivery confirmation validation
 const validateDeliveryConfirmation = [
   param('paymentId')
@@ -159,6 +190,11 @@ router.post('/intent', validatePaymentIntent, createPaymentIntent);
 router.post('/:paymentId/confirm', validatePaymentConfirmation, confirmPayment);
 router.get('/:paymentId', validatePaymentId, getPayment);
 router.get('/', validateListQuery, getPaymentHistory);
+
+// Dispute management
+router.post('/:paymentId/disputes', validateDisputeOpen, openDispute);
+router.get('/:paymentId/disputes', validatePaymentId, getDispute);
+router.post('/:paymentId/disputes/resolve', validateDisputeResolve, resolveDispute);
 
 // Escrow management routes
 router.post('/:paymentId/release-escrow', validateEscrowRelease, releaseEscrow);

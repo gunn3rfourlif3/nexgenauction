@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import AccountSection from '../components/Account/AccountSection';
 
 interface ProfileData {
   firstName: string;

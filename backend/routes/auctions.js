@@ -11,6 +11,7 @@ const {
   placeBid,
   getUserAuctions,
   getUserBids,
+  getUserAuctionHistory,
   addToWatchlist,
   removeFromWatchlist,
   getUserWatchlist,
@@ -55,6 +56,7 @@ router.delete('/:id/watchlist', validateObjectId('id'), removeFromWatchlist);
 // User-specific auction routes
 router.get('/user/:userId/selling', validateObjectId('userId'), requireOwnershipOrAdmin('userId'), getUserAuctions);
 router.get('/user/:userId/bidding', validateObjectId('userId'), requireOwnershipOrAdmin('userId'), getUserBids);
+router.get('/user/:userId/history', validateObjectId('userId'), requireOwnershipOrAdmin('userId'), getUserAuctionHistory);
 
 // Current user's auctions (convenience routes)
 router.get('/my/selling', (req, res, next) => {
@@ -65,6 +67,11 @@ router.get('/my/selling', (req, res, next) => {
 router.get('/my/bidding', (req, res, next) => {
   req.params.userId = req.user._id.toString();
   getUserBids(req, res, next);
+});
+
+router.get('/my/history', (req, res, next) => {
+  req.params.userId = req.user._id.toString();
+  getUserAuctionHistory(req, res, next);
 });
 
 router.get('/my/watchlist', getUserWatchlist);

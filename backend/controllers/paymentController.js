@@ -262,6 +262,104 @@ const getPaymentHistory = async (req, res) => {
   }
 };
 
+// Open a dispute on a payment
+const openDispute = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { reason } = req.body;
+    const userId = req.user.id;
+
+    const payment = await Payment.findOne({ paymentId });
+    if (!payment) {
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+
+    if (payment.buyer.toString() !== userId && payment.seller.toString() !== userId) {
+      return res.status(403).json({ success: false, message: 'Not authorized to dispute this payment' });
+    }
+
+    payment.dispute = payment.dispute || {};
+    payment.dispute.isDisputed = true;
+    payment.dispute.disputeReason = reason || 'No reason provided';
+    payment.dispute.disputeDate = new Date();
+    payment.dispute.disputeStatus = 'open';
+    payment.status = 'disputed';
+    payment.escrowStatus = 'disputed';
+
+    await payment.save();
+
+    res.json({ success: true, message: 'Dispute opened', payment });
+  } catch (error) {
+    console.error('Open dispute error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
+// Get dispute details for a payment
+const getDispute = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const userId = req.user.id;
+
+    const payment = await Payment.findOne({ paymentId })
+      .populate('buyer', 'username firstName lastName')
+      .populate('seller', 'username firstName lastName');
+    if (!payment) {
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+
+    if (payment.buyer._id.toString() !== userId && payment.seller._id.toString() !== userId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    res.json({ success: true, dispute: payment.dispute || {} });
+  } catch (error) {
+    console.error('Get dispute error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Resolve a dispute
+const resolveDispute = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { resolution, status = 'resolved' } = req.body;
+    const userId = req.user.id;
+
+    const payment = await Payment.findOne({ paymentId });
+    if (!payment) {
+      return res.status(404).json({ success: false, message: 'Payment not found' });
+    }
+
+    const isActor = payment.buyer.toString() === userId || payment.seller.toString() === userId || req.user.role === 'admin';
+    if (!isActor) {
+      return res.status(403).json({ success: false, message: 'Not authorized to resolve this dispute' });
+    }
+
+    payment.dispute = payment.dispute || {};
+    payment.dispute.disputeStatus = status;
+    payment.dispute.resolution = resolution || 'No resolution details provided';
+
+    if (status === 'resolved' || status === 'closed') {
+      const resText = (payment.dispute.resolution || '').toLowerCase();
+      if (resText.includes('refund') || resText.includes('buyer')) {
+        payment.escrowStatus = 'refunded_to_buyer';
+        payment.status = 'refunded';
+      } else {
+        payment.escrowStatus = 'released_to_seller';
+        payment.status = 'completed';
+      }
+    }
+
+    await payment.save();
+
+    res.json({ success: true, message: 'Dispute updated', payment });
+  } catch (error) {
+    console.error('Resolve dispute error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
 /**
  * Release escrow funds to seller
  */
@@ -553,6 +651,9 @@ module.exports = {
   confirmPayment,
   getPayment,
   getPaymentHistory,
+  openDispute,
+  getDispute,
+  resolveDispute,
   releaseEscrow,
   requestRefund,
   confirmDelivery,

@@ -97,6 +97,8 @@ export const apiEndpoints = {
     getUserWatchlist: (params?: any) => api.get('/auctions/my/watchlist', { params }),
     addToWatchlist: (id: string) => api.post(`/auctions/${id}/watchlist`),
     removeFromWatchlist: (id: string) => api.delete(`/auctions/${id}/watchlist`),
+    getUserHistory: (params?: { page?: number; limit?: number }) => 
+      api.get('/auctions/my/history', { params }),
   },
 
   // Category endpoints
@@ -128,6 +130,19 @@ export const apiEndpoints = {
     getHistory: (id: string, params?: { limit?: number; page?: number }) => 
       api.get(`/bids/${id}/history`, { params }),
     setAutoBid: (id: string, data: any) => api.post(`/bids/${id}/auto-bid`, data),
+  },
+
+  // Payments endpoints
+  payments: {
+    getById: (paymentId: string) => api.get(`/payments/${paymentId}`),
+    getHistory: (params?: { page?: number; limit?: number; status?: string }) => 
+      api.get('/payments', { params }),
+    getEscrowStatus: (paymentId: string) => api.get(`/payments/${paymentId}/escrow-status`),
+    openDispute: (paymentId: string, data: { reason?: string }) => 
+      api.post(`/payments/${paymentId}/disputes`, data),
+    getDispute: (paymentId: string) => api.get(`/payments/${paymentId}/disputes`),
+    resolveDispute: (paymentId: string, data: { status?: string; resolution?: string }) => 
+      api.post(`/payments/${paymentId}/disputes/resolve`, data),
   },
 };
 

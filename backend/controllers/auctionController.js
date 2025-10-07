@@ -1,5 +1,6 @@
 const Auction = require('../models/Auction');
 const User = require('../models/User');
+const emailService = require('../services/emailService');
 
 // Get all auctions with filtering and pagination
 const getAuctions = async (req, res) => {
@@ -436,7 +437,7 @@ const getAuctionById = async (req, res) => {
       return res.json({ success: true, data: { auction: mockAuction } });
     }
 
-    const auction = await Auction.findById(id)
+    let auction = await Auction.findById(id)
       .populate('seller', 'username firstName lastName email phone')
       .populate('winner', 'username firstName lastName')
       .populate('bids.bidder', 'username firstName lastName');
@@ -446,6 +447,50 @@ const getAuctionById = async (req, res) => {
         success: false,
         message: 'Auction not found'
       });
+    }
+
+    // If auction has ended but not finalized, finalize (set winner) and send notifications once
+    if (auction.status === 'active' && new Date() >= auction.endTime) {
+      auction = await auction.checkAndEndAuction();
+      await auction.populate('seller', 'username firstName lastName email phone');
+      await auction.populate('winner', 'username firstName lastName email');
+
+      // Send winner notification once
+      if (auction.winner && auction.winningBid && !auction.notifications?.winnerNotified) {
+        const winnerEmail = auction.winner?.email;
+        if (winnerEmail) {
+          const result = await emailService.sendAuctionWinnerEmail(winnerEmail, {
+            firstName: auction.winner.firstName || auction.winner.username || 'Bidder',
+            auctionTitle: auction.title,
+            amount: auction.winningBid,
+            auctionId: auction._id.toString()
+          });
+          if (result.success) {
+            auction.notifications = auction.notifications || {};
+            auction.notifications.winnerNotified = true;
+          }
+        }
+      }
+
+      // Send seller notification once
+      if (auction.seller && auction.winningBid && !auction.notifications?.sellerNotified) {
+        const sellerEmail = auction.seller?.email;
+        if (sellerEmail) {
+          const result = await emailService.sendSellerAuctionEndedEmail(sellerEmail, {
+            firstName: auction.seller.firstName || auction.seller.username || 'Seller',
+            auctionTitle: auction.title,
+            amount: auction.winningBid,
+            auctionId: auction._id.toString(),
+            winnerName: auction.winner ? (auction.winner.firstName || auction.winner.username || 'Buyer') : 'No winner'
+          });
+          if (result.success) {
+            auction.notifications = auction.notifications || {};
+            auction.notifications.sellerNotified = true;
+          }
+        }
+      }
+
+      await auction.save();
     }
 
     // Increment view count if user is not the seller
@@ -1364,6 +1409,109 @@ const markAllNotificationsAsRead = async (req, res) => {
   }
 };
 
+// Get user's auction history (ended auctions where user is seller or bidder)
+const getUserAuctionHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 12 } = req.query;
+    const userId = req.params.userId || req.user._id;
+
+    // Development-mode fallback: use in-memory dev store
+    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
+      try {
+        const { listAuctions } = require('../services/devMockStore');
+        const allAuctions = listAuctions();
+
+        const userEndedAuctions = allAuctions.filter(a => {
+          const sellerId = (a.seller && (a.seller._id || a.seller)) || '';
+          const isSeller = sellerId.toString() === userId.toString();
+          const hasUserBid = Array.isArray(a.bids) && a.bids.some(b => {
+            const bidderId = (b.bidder && (b.bidder._id || b.bidder)) || '';
+            return bidderId.toString() === userId.toString();
+          });
+          return a.status === 'ended' && (isSeller || hasUserBid);
+        });
+
+        userEndedAuctions.sort((a, b) => new Date(b.endTime || b.endDate || 0).getTime() - new Date(a.endTime || a.endDate || 0).getTime());
+
+        const start = (parseInt(page) - 1) * parseInt(limit);
+        const end = start + parseInt(limit);
+        const paged = userEndedAuctions.slice(start, end);
+        const total = userEndedAuctions.length;
+
+        return res.json({
+          success: true,
+          data: {
+            auctions: paged,
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: Math.ceil(total / parseInt(limit)),
+              totalItems: total,
+              itemsPerPage: parseInt(limit)
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Dev-mode getUserAuctionHistory error:', e);
+        return res.json({
+          success: true,
+          data: {
+            auctions: [],
+            pagination: {
+              currentPage: parseInt(page),
+              totalPages: 0,
+              totalItems: 0,
+              itemsPerPage: parseInt(limit)
+            }
+          }
+        });
+      }
+    }
+
+    // DB-backed implementation
+    const userObjectId = userId.toString();
+
+    const auctions = await Auction.find({
+      status: 'ended',
+      $or: [
+        { seller: userObjectId },
+        { 'bids.bidder': userObjectId }
+      ]
+    })
+      .populate('seller', 'username firstName lastName')
+      .populate('winner', 'username firstName lastName')
+      .sort({ endTime: -1 })
+      .limit(parseInt(limit) * 1)
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await Auction.countDocuments({
+      status: 'ended',
+      $or: [
+        { seller: userObjectId },
+        { 'bids.bidder': userObjectId }
+      ]
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        auctions,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / parseInt(limit)),
+          totalItems: total,
+          itemsPerPage: parseInt(limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get user auction history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch auction history'
+    });
+  }
+};
+
 module.exports = {
   getAuctions,
   getAuctionById,
@@ -1373,6 +1521,7 @@ module.exports = {
   placeBid,
   getUserAuctions,
   getUserBids,
+  getUserAuctionHistory,
   addToWatchlist,
   removeFromWatchlist,
   getUserWatchlist,
