@@ -5,87 +5,158 @@ import { useNotification } from '../contexts/NotificationContext';
 import { apiEndpoints } from '../services/api';
 
 const Auctions: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
-  const { showNotification } = useNotification();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('ending-soon');
-  const [auctions, setAuctions] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+ const navigate = useNavigate();
+ const { user, isAuthenticated } = useAuth();
+ const { showNotification } = useNotification();
+ const [searchTerm, setSearchTerm] = useState('');
+ const [selectedCategory, setSelectedCategory] = useState('all');
+ const [sortBy, setSortBy] = useState('ending-soon');
+ const [auctions, setAuctions] = useState<any[]>([]);
+ const [categories, setCategories] = useState<any[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [error, setError] = useState<string | null>(null);
+ const [currentPage, setCurrentPage] = useState(1);
 
-  // Handle bid placement
-  const handleBidNow = (auctionId: number) => {
-    if (!user) {
-      showNotification('Please log in to place a bid', 'error');
-      navigate('/login');
-      return;
-    }
+ // Handle bid placement
+ const handleBidNow = (auctionId: number) => {
+   if (!user) {
+     showNotification('Please log in to place a bid', 'error');
+     navigate('/login');
+     return;
+   }
 
-    // Navigate to auction detail page for bidding
-    navigate(`/auctions/${auctionId}`);
-  };
+   // Navigate to auction detail page for bidding
+   navigate(`/auctions/${auctionId}`);
+ };
+
+ // Map frontend sort values to backend-accepted sort values
+ const mapSortToBackend = (frontendSort: string): string => {
+   const sortMapping: { [key: string]: string } = {
+     'ending-soon': 'endTime',
+     'newest': '-createdAt',
+     'price-low': 'currentBid',
+     'price-high': '-currentBid',
+     'most-bids': '-bidCount'
+   };
+   return sortMapping[frontendSort] || 'endTime';
+ };
+
+ // Map frontend category to backend-accepted category
+ const mapCategoryToBackend = (frontendCategory: string): string | undefined => {
+   if (frontendCategory === 'all') return undefined;
+   
+   const categoryMapping: { [key: string]: string } = {
+     'electronics': 'Electronics',
+     'art': 'Art',
+     'jewelry': 'Jewelry',
+     'vehicles': 'Vehicles',
+     'home': 'Antiques',
+     'fashion': 'Collectibles'
+   };
+   return categoryMapping[frontendCategory] || frontendCategory;
+ };
 
   const defaultCategories = [
     { value: 'all', label: 'All Categories' },
-    { value: 'electronics', label: 'Electronics' },
-    { value: 'art', label: 'Art & Collectibles' },
-    { value: 'jewelry', label: 'Jewelry & Watches' },
-    { value: 'vehicles', label: 'Vehicles' },
-    { value: 'home', label: 'Home & Garden' },
-    { value: 'fashion', label: 'Fashion' },
+    { value: 'Art', label: 'Art' },
+    { value: 'Collectibles', label: 'Collectibles' },
+    { value: 'Vehicles', label: 'Vehicles' },
+    { value: 'Antiques', label: 'Antiques' },
+    { value: 'Jewelry', label: 'Jewelry' },
+    { value: 'Books & Manuscripts', label: 'Books & Manuscripts' },
   ];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Try to fetch auctions and categories from API
-        const [auctionsResponse, categoriesResponse] = await Promise.allSettled([
-          apiEndpoints.auctions.getAll(),
-          apiEndpoints.categories.getAll()
-        ]);
+ // Fetch auctions with filters
+ const fetchAuctions = async () => {
+   setLoading(true);
+   try {
+     const params: any = {
+       page: currentPage,
+       limit: 20,
+       sort: mapSortToBackend(sortBy),
+       status: 'active'
+     };
 
-        // Handle auctions response
-        if (auctionsResponse.status === 'fulfilled' && auctionsResponse.value.data.success) {
-          setAuctions(auctionsResponse.value.data.data || []);
-        } else {
-          // Use sample data if API fails
-          setAuctions(sampleAuctions);
-        }
+     // Add search term if provided and user is authenticated
+     if (searchTerm.trim() && isAuthenticated) {
+       params.search = searchTerm.trim();
+     }
 
-        // Handle categories response
-        if (categoriesResponse.status === 'fulfilled' && categoriesResponse.value.data.success) {
-          const apiCategories = categoriesResponse.value.data.data.categories || [];
-          setCategories([{ value: 'all', label: 'All Categories' }, ...apiCategories]);
-        } else {
-          // Use default categories if API fails
-          setCategories(defaultCategories);
-        }
+     // Add category if not 'all'
+     const backendCategory = mapCategoryToBackend(selectedCategory);
+     if (backendCategory) {
+       params.category = backendCategory;
+     }
 
-        setError(null);
-      } catch (err: any) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load data from server. Showing sample data.');
-        setAuctions(sampleAuctions);
+     const response = await apiEndpoints.auctions.getAll(params);
+     
+     if (response.data.success) {
+       const auctionData = response.data.data.auctions || [];
+       setAuctions(auctionData);
+       setError(null);
+     } else {
+       throw new Error(response.data.message || 'Failed to fetch auctions');
+     }
+   } catch (err: any) {
+     console.error('Error fetching auctions:', err);
+     setError('Failed to load auctions from server. Showing sample data.');
+     setAuctions(sampleAuctions);
+   } finally {
+     setLoading(false);
+   }
+ };
+
+ // Fetch categories
+  const fetchCategories = async () => {
+    try {
+      const response = await apiEndpoints.categories.getAll();
+      if (response.data.success) {
+        const apiCategories = (response.data.data.categories || []).map((c: any) => ({
+          value: c._id || c.value || c.name,
+          label: c.name || c.label || c._id
+        }));
+        setCategories([{ value: 'all', label: 'All Categories' }, ...apiCategories]);
+      } else {
         setCategories(defaultCategories);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err: any) {
+      console.error('Error fetching categories:', err);
+      setCategories(defaultCategories);
+    }
+  };
 
-    fetchData();
-  }, []);
+ useEffect(() => {
+   fetchCategories();
+ }, []);
 
-  const sortOptions = [
-    { value: 'ending-soon', label: 'Ending Soon' },
-    { value: 'newest', label: 'Newest First' },
-    { value: 'price-low', label: 'Price: Low to High' },
-    { value: 'price-high', label: 'Price: High to Low' },
-    { value: 'most-bids', label: 'Most Bids' },
-  ];
+ // Refetch auctions when filters change
+ useEffect(() => {
+   fetchAuctions();
+ }, [currentPage, sortBy, selectedCategory, searchTerm, isAuthenticated]);
+
+ // Handle filter changes
+ const handleSortChange = (newSort: string) => {
+   setSortBy(newSort);
+   setCurrentPage(1); // Reset to first page when filter changes
+ };
+
+ const handleCategoryChange = (newCategory: string) => {
+   setSelectedCategory(newCategory);
+   setCurrentPage(1); // Reset to first page when filter changes
+ };
+
+ const handleSearchChange = (newSearch: string) => {
+   setSearchTerm(newSearch);
+   setCurrentPage(1); // Reset to first page when filter changes
+ };
+
+ const sortOptions = [
+   { value: 'ending-soon', label: 'Ending Soon' },
+   { value: 'newest', label: 'Newest First' },
+   { value: 'price-low', label: 'Price: Low to High' },
+   { value: 'price-high', label: 'Price: High to Low' },
+   { value: 'most-bids', label: 'Most Bids' },
+ ];
 
   // Sample auction data - will be replaced with API data
   const sampleAuctions = Array.from({ length: 12 }, (_, i) => ({
@@ -138,15 +209,15 @@ const Auctions: React.FC = () => {
                 <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
                   Search Auctions
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    id="search"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search for items..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-                  />
+               <div className="relative">
+                 <input
+                   type="text"
+                   id="search"
+                   value={searchTerm}
+                   onChange={(e) => handleSearchChange(e.target.value)}
+                   placeholder="Search for items..."
+                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                 />
                   <svg
                     className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
                     fill="none"
@@ -169,13 +240,13 @@ const Auctions: React.FC = () => {
               <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
-              <select
-                id="category"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-              >
-                {categories.map((category) => (
+             <select
+               id="category"
+               value={selectedCategory}
+               onChange={(e) => handleCategoryChange(e.target.value)}
+               className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+             >
+               {categories.map((category) => (
                   <option key={category.value} value={category.value}>
                     {category.label}
                   </option>
@@ -188,13 +259,13 @@ const Auctions: React.FC = () => {
               <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-2">
                 Sort By
               </label>
-              <select
-                id="sort"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                {sortOptions.map((option) => (
+             <select
+               id="sort"
+               value={sortBy}
+               onChange={(e) => handleSortChange(e.target.value)}
+               className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+             >
+               {sortOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

@@ -83,7 +83,10 @@ const validateAuctionCreation = [
     .withMessage('Description is required and must not exceed 2000 characters'),
   
   body('category')
-    .isIn(['electronics', 'art', 'jewelry', 'vehicles', 'home', 'fashion', 'collectibles', 'other'])
+    .isIn([
+      'electronics', 'art', 'jewelry', 'vehicles', 'home', 'fashion', 'collectibles',
+      'antiques', 'books', 'sports', 'music', 'other'
+    ])
     .withMessage('Please select a valid category'),
   
   body('condition')
@@ -129,8 +132,23 @@ const validateAuctionCreation = [
     .withMessage('At least one image is required'),
   
   body('images.*.url')
-    .isURL()
-    .withMessage('Please provide valid image URLs'),
+    .custom((value) => {
+      if (typeof value !== 'string') {
+        throw new Error('Please provide valid image URLs');
+      }
+      // Accept absolute URLs, common relative paths, and data URIs
+      const isAbsolute = /^(https?:\/\/|ftp:\/\/)/i.test(value);
+      // Relative paths can be root-based ("/path"), current dir ("./path"), or parent dir ("../path")
+      const isRelative = /^(\/|\.\/|\.\.\/)/.test(value);
+      // Data URIs: allow image mime types with optional charset; content may be base64 or URL-encoded
+      const isData = /^data:image\/[a-zA-Z0-9.+-]+(;charset=[a-zA-Z0-9-]+)?(;base64)?,[A-Za-z0-9+/=._-]+/i.test(value);
+      // Also accept simple placeholder endpoints commonly used in dev (e.g., /api/placeholder/400/300)
+      const isDevPlaceholder = /^\/api\/placeholder\/(\d{2,4})\/(\d{2,4})(\?.*)?$/i.test(value);
+      if (isAbsolute || isRelative || isData || isDevPlaceholder) {
+        return true;
+      }
+      throw new Error('Please provide valid image URLs');
+    }),
   
   handleValidationErrors
 ];
@@ -221,12 +239,12 @@ const validatePaginationQuery = [
 const validateAuctionQuery = [
   query('category')
     .optional()
-    .isIn(['electronics', 'art', 'jewelry', 'vehicles', 'home', 'fashion', 'collectibles', 'other'])
+    .isIn(['Art', 'Collectibles', 'Vehicles', 'Antiques', 'Jewelry', 'Books & Manuscripts'])
     .withMessage('Invalid category'),
-  
+
   query('status')
     .optional()
-    .isIn(['draft', 'scheduled', 'active', 'ended', 'cancelled'])
+    .isIn(['scheduled', 'active', 'ended', 'cancelled'])
     .withMessage('Invalid status'),
   
   query('minPrice')

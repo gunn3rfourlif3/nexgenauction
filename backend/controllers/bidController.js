@@ -35,86 +35,7 @@ const placeBid = async (req, res) => {
     const { amount, bidType = 'manual', maxAutoBid } = req.body;
     const userId = req.user._id || req.user.id;
     const io = req.app.get('io');
-
-    // Development-mode fallback: bypass DB and use in-memory store
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      const { getAuction, placeBid: devPlaceBid } = require('../services/devMockStore');
-      const auction = getAuction(auctionId);
-
-      // Basic validations mirroring production logic
-      if (!auction) {
-        return res.status(404).json({ success: false, message: 'Auction not found' });
-      }
-      if (auction.status !== 'active') {
-        return res.status(400).json({ success: false, message: 'Auction is not active' });
-      }
-      if (new Date() > new Date(auction.endTime || auction.endDate)) {
-        return res.status(400).json({ success: false, message: 'Auction has ended' });
-      }
-      if (auction.seller && (auction.seller._id === userId || auction.seller === userId)) {
-        return res.status(400).json({ success: false, message: 'You cannot bid on your own auction' });
-      }
-
-      const currentAmount = auction.currentBid ?? auction.startingPrice;
-      const minimumIncrement = calculateMinimumIncrement(currentAmount);
-      const minimumBid = currentAmount + minimumIncrement;
-      if (amount < minimumBid) {
-        return res.status(400).json({ success: false, message: `Minimum bid is $${minimumBid.toFixed(2)} (current: $${currentAmount.toFixed(2)} + $${minimumIncrement.toFixed(2)} increment)` });
-      }
-
-      // Place bid in dev store
-      const bidderInfo = { _id: userId, username: req.user.username, firstName: req.user.firstName, lastName: req.user.lastName };
-      const result = devPlaceBid(auctionId, bidderInfo, amount, bidType, maxAutoBid);
-
-      // Anti-sniping soft-close: extend end time if within threshold
-      try {
-        const now = Date.now();
-        const end = new Date(auction.endTime || auction.endDate).getTime();
-        const remaining = end - now;
-        if (remaining > 0 && remaining <= SOFT_CLOSE_THRESHOLD_MS) {
-          const newEnd = new Date(end + SOFT_CLOSE_EXTENSION_MS);
-          auction.endTime = newEnd;
-        }
-      } catch (e) {
-        // no-op in dev fallback
-      }
-
-      // Emit real-time update to all users in the auction room
-      io && io.to(`auction-${auctionId}`).emit('new-bid', {
-        bid: {
-          _id: result.bid._id,
-          amount: result.bid.amount,
-          bidder: {
-            username: result.bid.bidder.username,
-            firstName: result.bid.bidder.firstName,
-            lastName: result.bid.bidder.lastName
-          },
-          bidTime: result.bid.bidTime,
-          bidType: result.bid.bidType
-        },
-        auction: {
-          currentBid: result.auction.currentBid,
-          bidCount: result.auction.bidCount,
-          endTime: result.auction.endTime
-        }
-      });
-
-      // Emit auction status update for soft-close end time changes
-      io && io.to(`auction-${auctionId}`).emit('auction-update', {
-        endTime: auction.endTime,
-        currentBid: result.auction.currentBid,
-        bidCount: result.auction.bidCount
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: 'Bid placed successfully',
-        data: {
-          bid: result.bid,
-          minimumNextBid: amount + calculateMinimumIncrement(amount)
-        }
-      });
-    }
+    // Development fallback removed; enforce database-only logic
 
     // Validate auction exists and is active
     const auction = await Auction.findById(auctionId);
@@ -220,6 +141,20 @@ const placeBid = async (req, res) => {
       }
     });
 
+    // Notify room listeners that the previous highest bidder has been outbid
+    if (currentHighestBid && currentHighestBid.bidder && currentHighestBid.bidder._id) {
+      try {
+        io.to(`auction-${auctionId}`).emit('outbid', {
+          auctionId,
+          previousHighestBidderId: currentHighestBid.bidder._id.toString(),
+          currentBid: auction.currentBid,
+          timestamp: Date.now()
+        });
+      } catch (e) {
+        // no-op
+      }
+    }
+
     // Emit auction status update for soft-close end time changes
     io.to(`auction-${auctionId}`).emit('auction-update', {
       endTime: auction.endTime,
@@ -311,6 +246,21 @@ const processAutoBids = async (auctionId, newBidAmount, excludeUserId, io) => {
           }
         });
 
+        // Emit outbid event indicating prior highest bidder lost the lead
+        try {
+          const priorHighest = await Bid.getHighestBid(auctionId); // highest after placing auto-bid is newAutoBid
+          // Determine previous bidder before this auto-bid by querying second highest or using newBidAmount
+          // As a pragmatic approach, include bidder who was just surpassed (excludeUserId/newBidAmount holder)
+          io.to(`auction-${auctionId}`).emit('outbid', {
+            auctionId,
+            previousHighestBidderId: excludeUserId ? excludeUserId.toString() : null,
+            currentBid: auction.currentBid,
+            timestamp: Date.now()
+          });
+        } catch (e) {
+          // no-op
+        }
+
         // Emit auction status update for soft-close end time changes
         io.to(`auction-${auctionId}`).emit('auction-update', {
           endTime: auction.endTime,
@@ -333,45 +283,6 @@ const getBidHistory = async (req, res) => {
     const { auctionId } = req.params;
     const { limit = 20, page = 1 } = req.query;
 
-    // Development-mode fallback: use in-memory dev store
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      try {
-        const { getAuction } = require('../services/devMockStore');
-        const auction = getAuction(auctionId);
-        const allBids = Array.isArray(auction?.bids) ? auction.bids : [];
-
-        // Sort similar to production: amount desc, then time desc
-        const sorted = allBids.slice().sort((a, b) => {
-          const amountDiff = Number(b.amount || 0) - Number(a.amount || 0);
-          if (amountDiff !== 0) return amountDiff;
-          const bt = new Date(b.bidTime || b.timestamp || 0).getTime();
-          const at = new Date(a.bidTime || a.timestamp || 0).getTime();
-          return bt - at;
-        });
-
-        const l = parseInt(limit);
-        const p = parseInt(page);
-        const start = (p - 1) * l;
-        const paged = sorted.slice(start, start + l);
-        const totalBids = sorted.length;
-
-        return res.json({
-          success: true,
-          data: {
-            bids: paged,
-            pagination: {
-              currentPage: p,
-              totalPages: Math.ceil(totalBids / l),
-              totalBids,
-              hasMore: totalBids > p * l
-            }
-          }
-        });
-      } catch (e) {
-        console.error('Dev-mode getBidHistory error:', e);
-        return res.status(500).json({ success: false, message: 'Failed to fetch bid history (development mode)' });
-      }
-    }
 
     const bids = await Bid.find({ 
       auction: auctionId, 
@@ -414,42 +325,6 @@ const getCurrentBid = async (req, res) => {
   try {
     const { auctionId } = req.params;
 
-    // Development-mode fallback: use in-memory dev store
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      try {
-        const { getAuction } = require('../services/devMockStore');
-        const auction = getAuction(auctionId);
-        if (!auction) {
-          return res.status(404).json({ success: false, message: 'Auction not found' });
-        }
-
-        const bids = Array.isArray(auction.bids) ? auction.bids : [];
-        const currentPrice = Number(auction.currentBid ?? auction.startingPrice ?? 0);
-        const minimumNextBid = currentPrice + calculateMinimumIncrement(currentPrice);
-        const totalBids = Number(auction.bidCount ?? bids.length ?? 0);
-
-        // Find current highest bid object, if present
-        let currentBid = null;
-        if (bids.length) {
-          const maxAmount = bids.reduce((m, b) => Math.max(m, Number(b.amount || 0)), 0);
-          currentBid = bids.find(b => Number(b.amount || 0) === maxAmount) || bids[bids.length - 1];
-        }
-
-        return res.json({
-          success: true,
-          data: {
-            currentBid,
-            currentPrice,
-            minimumNextBid,
-            totalBids,
-            minimumIncrement: calculateMinimumIncrement(currentPrice)
-          }
-        });
-      } catch (e) {
-        console.error('Dev-mode getCurrentBid error:', e);
-        return res.status(500).json({ success: false, message: 'Failed to fetch current bid (development mode)' });
-      }
-    }
 
     const highestBid = await Bid.getHighestBid(auctionId);
     const auction = await Auction.findById(auctionId);
@@ -491,24 +366,6 @@ const getUserBids = async (req, res) => {
     const { auctionId } = req.params;
     const userId = req.user.id;
 
-    // Development-mode fallback: use in-memory dev store
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      try {
-        const { getAuction } = require('../services/devMockStore');
-        const auction = getAuction(auctionId);
-        const bids = Array.isArray(auction?.bids) ? auction.bids : [];
-        const userBids = bids.filter(b => {
-          const bidderId = (b.bidder && (b.bidder._id || b.bidder)) || '';
-          return bidderId.toString() === userId.toString();
-        }).sort((a, b) => new Date(b.bidTime || b.timestamp || 0).getTime() - new Date(a.bidTime || a.timestamp || 0).getTime());
-
-        return res.json({ success: true, data: { bids: userBids } });
-      } catch (e) {
-        console.error('Dev-mode getUserBids error:', e);
-        return res.status(500).json({ success: false, message: 'Failed to fetch user bids (development mode)' });
-      }
-    }
-
     const userBids = await Bid.getUserBids(auctionId, userId);
 
     res.json({
@@ -531,46 +388,6 @@ const setAutoBid = async (req, res) => {
     const { auctionId } = req.params;
     const { maxAmount } = req.body;
     const userId = req.user._id || req.user.id;
-
-    // Development-mode fallback: bypass DB and use in-memory store
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      const { getAuction, placeBid: devPlaceBid } = require('../services/devMockStore');
-      const auction = getAuction(auctionId);
-
-      // Basic validations mirroring production logic
-      if (!auction || auction.status !== 'active') {
-        return res.status(400).json({
-          success: false,
-          message: 'Auction is not available for bidding'
-        });
-      }
-
-      // Check if user is the seller
-      if (auction.seller && (auction.seller._id === userId || auction.seller === userId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'You cannot set auto-bid on your own auction'
-        });
-      }
-
-      const currentPrice = auction.currentBid ?? auction.startingPrice;
-      if (maxAmount <= currentPrice) {
-        return res.status(400).json({
-          success: false,
-          message: `Auto-bid maximum must be higher than current price ($${Number(currentPrice).toFixed(2)})`
-        });
-      }
-
-      // Record auto-bid in dev store without changing current price
-      const bidderInfo = { _id: userId, username: req.user.username, firstName: req.user.firstName, lastName: req.user.lastName };
-      devPlaceBid(auctionId, bidderInfo, currentPrice, 'auto', maxAmount);
-
-      return res.json({
-        success: true,
-        message: 'Auto-bid set successfully',
-        data: { maxAmount }
-      });
-    }
 
     // Validate auction
     const auction = await Auction.findById(auctionId);

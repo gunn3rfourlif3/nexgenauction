@@ -252,8 +252,8 @@ const AuctionDetailPage: React.FC = () => {
       return;
     }
 
-    // Check if user is the seller
-    if (auction && user._id === auction.seller._id) {
+    // Check if user is the seller (guard null seller)
+    if (auction && auction.seller && user?._id === auction.seller._id) {
       showNotification('You cannot bid on your own auction', 'error');
       return;
     }
@@ -416,7 +416,7 @@ const AuctionDetailPage: React.FC = () => {
       />
 
       {/* Admin/Seller Actions */}
-      {(user && (user._id === auction.seller._id || user.role === 'admin')) && (
+      {user && ((auction?.seller && user._id === auction.seller._id) || user.role === 'admin') && (
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-end">
             {(user.role === 'admin' || (auction.status !== 'ended' && auction.bidCount === 0)) && (

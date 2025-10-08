@@ -8,7 +8,6 @@ const User = require('../models/User');
 
 // Environment flags
 const IS_DEV = (process.env.NODE_ENV === 'development');
-const SKIP_DB = IS_DEV && process.env.FORCE_DB_CONNECTION !== 'true';
 const HAS_GOOGLE = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 const HAS_FACEBOOK = !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET);
 const HAS_GITHUB = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
@@ -19,18 +18,6 @@ passport.use(new JwtStrategy({
   secretOrKey: process.env.JWT_SECRET
 }, async (payload, done) => {
   try {
-    // In dev without DB, accept token and attach minimal user object
-    if (SKIP_DB) {
-      return done(null, {
-        _id: payload.id,
-        username: 'devuser',
-        firstName: 'Dev',
-        lastName: 'User',
-        email: 'devuser@example.com',
-        role: 'admin',
-        isActive: true
-      });
-    }
 
     const user = await User.findById(payload.id);
     if (user) {
@@ -52,20 +39,6 @@ if (HAS_GOOGLE) {
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       let user;
-      if (SKIP_DB) {
-        // Dev mode without DB: return a mock user
-        user = {
-          _id: 'mock_google_' + profile.id,
-          googleId: profile.id,
-          email: profile.emails[0].value,
-          firstName: profile.name.givenName,
-          lastName: profile.name.familyName,
-          profileImage: profile.photos[0].value,
-          isVerified: true,
-          username: profile.emails[0].value.split('@')[0] + '_' + Date.now()
-        };
-        return done(null, user);
-      }
 
       // Check if user already exists with this Google ID
       user = await User.findOne({ googleId: profile.id });
@@ -113,20 +86,6 @@ if (HAS_FACEBOOK) {
       let user;
       const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
 
-      if (SKIP_DB) {
-        user = {
-          _id: 'mock_facebook_' + profile.id,
-          facebookId: profile.id,
-          email,
-          firstName: profile.name.givenName,
-          lastName: profile.name.familyName,
-          profileImage: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-          isVerified: true,
-          username: email ? email.split('@')[0] + '_' + Date.now() : 'facebook_' + profile.id
-        };
-        return done(null, user);
-      }
-
       user = await User.findOne({ facebookId: profile.id });
       if (user) return done(null, user);
 
@@ -171,20 +130,6 @@ if (HAS_GITHUB) {
       let user;
       const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
 
-      if (SKIP_DB) {
-        user = {
-          _id: 'mock_github_' + profile.id,
-          githubId: profile.id,
-          email,
-          firstName: profile.displayName ? profile.displayName.split(' ')[0] : profile.username,
-          lastName: profile.displayName ? profile.displayName.split(' ').slice(1).join(' ') : '',
-          profileImage: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-          isVerified: true,
-          username: profile.username + '_' + Date.now()
-        };
-        return done(null, user);
-      }
-
       user = await User.findOne({ githubId: profile.id });
       if (user) return done(null, user);
 
@@ -225,15 +170,6 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (id, done) => {
   try {
-    if (SKIP_DB) {
-      // Dev mode without DB: attach a minimal user stub
-      return done(null, {
-        _id: id,
-        username: 'devuser',
-        role: 'admin',
-        isActive: true
-      });
-    }
     const user = await User.findById(id);
     done(null, user);
   } catch (error) {

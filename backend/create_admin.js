@@ -2,36 +2,49 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('./models/User');
 
+function getArg(name, fallback) {
+  const idx = process.argv.findIndex(a => a === `--${name}`);
+  if (idx !== -1 && process.argv[idx + 1]) return process.argv[idx + 1];
+  return process.env[name.toUpperCase()] || fallback;
+}
+
 async function createAdmin() {
   try {
-    // Connect to MongoDB
+    const email = getArg('email', 'admin@nexgenauction.com');
+    const password = getArg('password', 'password123');
+  const username = getArg('username', 'admin');
+  const firstName = getArg('first', 'Admin');
+  const lastName = getArg('last', 'User');
+  const role = getArg('role', 'admin');
+
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI is not set. Enable DB connection and provide URI.');
+    }
+
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    // Check if admin already exists
-    const existingAdmin = await User.findOne({ email: 'admin@nexgenauction.com' });
-    
-    if (existingAdmin) {
-      console.log('Admin user already exists, deleting...');
-      await User.deleteOne({ email: 'admin@nexgenauction.com' });
+    // Remove existing user with same email
+    const existing = await User.findOne({ email });
+    if (existing) {
+      console.log(`User with ${email} exists, deleting...`);
+      await User.deleteOne({ email });
     }
 
-    // Create new admin user (this will trigger the pre-save middleware for password hashing)
     const adminUser = new User({
-      username: 'admin',
-      email: 'admin@nexgenauction.com',
-      password: 'password123',
-      firstName: 'Admin',
-      lastName: 'User',
+      username,
+      email,
+      password,
+      firstName,
+      lastName,
       isVerified: true,
-      role: 'admin'
+      role
     });
 
     await adminUser.save();
-    console.log('Admin user created successfully');
-    
-    // Test the password
-    const isValid = await adminUser.comparePassword('password123');
+    console.log(`Admin user created: ${email}`);
+
+    const isValid = await adminUser.comparePassword(password);
     console.log('Password validation test:', isValid);
 
     await mongoose.connection.close();

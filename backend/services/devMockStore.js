@@ -205,10 +205,56 @@ function placeBid(auctionId, bidder, amount, bidType = 'manual', maxAutoBid = nu
   return { bid, auction };
 }
 
+function updateAuctionStatus(id, status) {
+  const a = getAuction(id);
+  if (!['active', 'paused'].includes(a.status)) {
+    throw new Error('Auction cannot be toggled at current status');
+  }
+  if (!['active', 'paused'].includes(status)) {
+    throw new Error('Invalid status update');
+  }
+  a.status = status;
+  return a;
+}
+
+function extendAuctionDev(id, { extensionMs, newEndTime } = {}) {
+  const a = getAuction(id);
+  if (a.status !== 'active') {
+    throw new Error('Only active auctions can be extended');
+  }
+  const currentEnd = new Date(a.endTime).getTime();
+  let targetEnd = currentEnd;
+  if (newEndTime) {
+    targetEnd = new Date(newEndTime).getTime();
+  } else if (extensionMs) {
+    targetEnd = currentEnd + Number(extensionMs);
+  } else {
+    targetEnd = currentEnd + 60 * 60 * 1000; // default 60 minutes
+  }
+  if (isNaN(targetEnd) || targetEnd <= currentEnd) {
+    throw new Error('New end time must be later than current end time');
+  }
+  a.endTime = new Date(targetEnd);
+  return a;
+}
+
+function cancelAuctionDev(id, reason = 'Cancelled by seller') {
+  const a = getAuction(id);
+  if (a.status === 'ended') {
+    throw new Error('Cannot cancel an ended auction');
+  }
+  a.status = 'cancelled';
+  a.cancellationReason = reason;
+  return a;
+}
+
 module.exports = {
   getAuction,
   incrementViews,
   placeBid,
+  updateAuctionStatus,
+  extendAuctionDev,
+  cancelAuctionDev,
   // List all auctions currently in the dev store
   listAuctions: () => {
     // Ensure catalog items are included even if not yet accessed

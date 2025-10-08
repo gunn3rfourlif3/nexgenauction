@@ -18,7 +18,10 @@ const {
   getCategories,
   getWatchlistNotifications,
   markNotificationAsRead,
-  markAllNotificationsAsRead
+  markAllNotificationsAsRead,
+  updateAuctionStatus,
+  extendAuction,
+  cancelAuction
 } = require('../controllers/auctionController');
 
 // Import middleware
@@ -29,6 +32,24 @@ const {
   validateObjectId,
   validateAuctionQuery
 } = require('../middleware/validation');
+
+// Inline validators for moderation endpoints
+const { body } = require('express-validator');
+const { handleValidationErrors } = require('../middleware/validation');
+const validateStatusUpdate = [
+  body('status').isIn(['active', 'paused']).withMessage('Status must be active or paused'),
+  handleValidationErrors
+];
+const validateExtend = [
+  body('extensionMinutes').optional().isInt({ min: 1, max: 10080 }).withMessage('extensionMinutes must be 1-10080'),
+  body('extensionMs').optional().isInt({ min: 60000 }).withMessage('extensionMs must be at least 60000'),
+  body('newEndTime').optional().isISO8601().withMessage('newEndTime must be ISO8601 date'),
+  handleValidationErrors
+];
+const validateCancel = [
+  body('reason').optional().isString().isLength({ max: 200 }).withMessage('Reason max length 200'),
+  handleValidationErrors
+];
 
 // Public routes
 router.get('/', validateAuctionQuery, getAuctions);
@@ -46,6 +67,11 @@ router.delete('/:id', validateObjectId('id'), deleteAuction);
 
 // Bidding
 router.post('/:id/bid', validateObjectId('id'), validateBidPlacement, placeBid);
+
+// Moderation endpoints
+router.patch('/:id/status', validateObjectId('id'), validateStatusUpdate, updateAuctionStatus);
+router.post('/:id/extend', validateObjectId('id'), validateExtend, extendAuction);
+router.post('/:id/cancel', validateObjectId('id'), validateCancel, cancelAuction);
 
 // Watchlist (provide aliases for /watch and /watchlist for frontend compatibility)
 router.post('/:id/watch', validateObjectId('id'), addToWatchlist);

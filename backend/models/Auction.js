@@ -119,6 +119,8 @@ const auctionSchema = new mongoose.Schema({
     required: [true, 'Start time is required'],
     validate: {
       validator: function(value) {
+        // Allow saves when startTime isn't being changed. Enforce future only when modified.
+        if (!this.isModified('startTime')) return true;
         return value >= new Date();
       },
       message: 'Start time must be in the future'
@@ -136,7 +138,7 @@ const auctionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'scheduled', 'active', 'ended', 'cancelled'],
+    enum: ['draft', 'scheduled', 'active', 'paused', 'ended', 'cancelled'],
     default: 'draft'
   },
   winner: {
@@ -250,6 +252,49 @@ auctionSchema.methods.placeBid = function(bidderId, amount) {
   });
   
   this.currentBid = amount;
+  return this.save();
+};
+
+// Moderation helpers
+auctionSchema.methods.pauseAuction = function() {
+  if (this.status !== 'active') {
+    throw new Error('Only active auctions can be paused');
+  }
+  this.status = 'paused';
+  return this.save();
+};
+
+auctionSchema.methods.resumeAuction = function() {
+  if (this.status !== 'paused') {
+    throw new Error('Only paused auctions can be resumed');
+  }
+  // If endTime already passed, end immediately
+  if (new Date() >= this.endTime) {
+    this.status = 'ended';
+    return this.save();
+  }
+  this.status = 'active';
+  return this.save();
+};
+
+auctionSchema.methods.extendAuction = function(minutes) {
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    throw new Error('Extension minutes must be a positive number');
+  }
+  if (this.status !== 'active' && this.status !== 'paused') {
+    throw new Error('Only active or paused auctions can be extended');
+  }
+  const ms = minutes * 60 * 1000;
+  this.endTime = new Date(this.endTime.getTime() + ms);
+  return this.save();
+};
+
+auctionSchema.methods.cancelAuction = function(reason) {
+  if (this.status === 'ended') {
+    throw new Error('Ended auctions cannot be cancelled');
+  }
+  this.status = 'cancelled';
+  this.cancellationReason = reason || undefined;
   return this.save();
 };
 

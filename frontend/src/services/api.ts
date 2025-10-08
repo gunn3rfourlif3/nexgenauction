@@ -99,6 +99,13 @@ export const apiEndpoints = {
     removeFromWatchlist: (id: string) => api.delete(`/auctions/${id}/watchlist`),
     getUserHistory: (params?: { page?: number; limit?: number }) => 
       api.get('/auctions/my/history', { params }),
+    // Moderation helpers
+    updateStatus: (id: string, status: 'active' | 'paused') => 
+      api.patch(`/auctions/${id}/status`, { status }),
+    extend: (id: string, payload: { extensionMinutes?: number; extensionMs?: number; newEndTime?: string }) => 
+      api.post(`/auctions/${id}/extend`, payload),
+    cancel: (id: string, payload?: { reason?: string }) => 
+      api.post(`/auctions/${id}/cancel`, payload || {}),
   },
 
   // Category endpoints

@@ -4,7 +4,7 @@ import SearchFilters from '../components/SearchFilters';
 import AuctionGrid from '../components/AuctionGrid';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { apiEndpoints } from '../services/api';
+import api, { apiEndpoints } from '../services/api';
 import { normalizeIds } from '../utils/idUtils';
 
 interface Auction {
@@ -112,11 +112,9 @@ const AuctionCatalog: React.FC = () => {
   // Fetch categories
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await fetch('/api/auctions/categories');
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data.data.categories || []);
-      }
+      const response = await api.get('/auctions/categories');
+      const data = response.data || {};
+      setCategories((data.data && data.data.categories) ? data.data.categories : (data.categories || []));
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -145,18 +143,17 @@ const AuctionCatalog: React.FC = () => {
       params.set('limit', pagination.itemsPerPage.toString());
       // Map UI sortBy/sortOrder to backend single `sort` param
       const mapSort = (sortBy: string, sortOrder: 'asc' | 'desc') => {
-        // Supported fields: createdAt, endTime, currentBid, title
         switch (sortBy) {
-          case 'ending-soon':
+          case 'endTime':
             return sortOrder === 'desc' ? '-endTime' : 'endTime';
-          case 'newest':
-            return sortOrder === 'desc' ? '-createdAt' : 'createdAt';
-          case 'price-low':
-            return 'currentBid';
-          case 'price-high':
-            return '-currentBid';
-          case 'title':
-            return sortOrder === 'desc' ? '-title' : 'title';
+          case 'startTime':
+            return sortOrder === 'desc' ? '-startTime' : 'startTime';
+          case 'currentBid':
+            return sortOrder === 'desc' ? '-currentBid' : 'currentBid';
+          case 'views':
+            return sortOrder === 'desc' ? '-views' : 'views';
+          case 'bidCount':
+            return sortOrder === 'desc' ? '-bidCount' : 'bidCount';
           default:
             return '-createdAt';
         }
@@ -164,23 +161,11 @@ const AuctionCatalog: React.FC = () => {
       const sort = mapSort(filters.sortBy, filters.sortOrder);
       params.set('sort', sort);
 
-      const response = await fetch(`/api/auctions?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch auctions');
-      }
+      const res = await apiEndpoints.auctions.getAll(Object.fromEntries(params as any));
+      const data = res.data || {};
 
-      const data = await response.json();
       // Normalize watchedBy to string IDs for consistent UI state
-      const normalizeIds = (arr: any[]) => (Array.isArray(arr) ? arr : [])
-        .map((w: any) => {
-          if (typeof w === 'string') return w;
-          if (w && typeof w === 'object' && w._id) return w._id.toString();
-          return '';
-        })
-        .filter(Boolean);
-
-      const normalizedAuctions = (data.data?.auctions || []).map((auction: any) => ({
+      const normalizedAuctions = (data.data?.auctions || data.auctions || [])?.map((auction: any) => ({
         ...auction,
         watchedBy: normalizeIds(auction.watchedBy),
       }));
@@ -188,9 +173,9 @@ const AuctionCatalog: React.FC = () => {
       setAuctions(normalizedAuctions);
       setPagination(prev => ({
         ...prev,
-        currentPage: data.data?.pagination?.currentPage || 1,
-        totalPages: data.data?.pagination?.totalPages || 1,
-        totalItems: data.data?.pagination?.totalItems || 0
+        currentPage: data.data?.pagination?.currentPage || data.pagination?.currentPage || 1,
+        totalPages: data.data?.pagination?.totalPages || data.pagination?.totalPages || 1,
+        totalItems: data.data?.pagination?.totalItems || data.pagination?.totalItems || 0
       }));
     } catch (error) {
       console.error('Error fetching auctions:', error);

@@ -57,8 +57,8 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
     { value: '', label: 'All Statuses' },
     { value: 'scheduled', label: 'Scheduled' },
     { value: 'active', label: 'Active' },
-    { value: 'ending-soon', label: 'Ending Soon' },
-    { value: 'ended', label: 'Ended' }
+    { value: 'ended', label: 'Ended' },
+    { value: 'cancelled', label: 'Cancelled' }
   ];
 
   const sortOptions = [

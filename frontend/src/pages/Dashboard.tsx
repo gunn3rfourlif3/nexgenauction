@@ -44,7 +44,7 @@ interface Auction {
   currentBid: number;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended' | 'paused';
+  status: 'scheduled' | 'active' | 'ended' | 'paused' | 'cancelled';
   seller: {
     _id: string;
     username: string;
@@ -83,6 +83,11 @@ const Dashboard: React.FC = () => {
   }>({ isOpen: false, auction: null });
   
   const [duplicateModal, setDuplicateModal] = useState<{
+    isOpen: boolean;
+    auction: Auction | null;
+  }>({ isOpen: false, auction: null });
+
+  const [cancelModal, setCancelModal] = useState<{
     isOpen: boolean;
     auction: Auction | null;
   }>({ isOpen: false, auction: null });
@@ -417,6 +422,19 @@ const Dashboard: React.FC = () => {
     return auction.status === 'active' || auction.status === 'paused';
   };
 
+  // Check if auction can be extended
+  const canExtendAuction = (auction: any) => {
+    return auction.status === 'active' || auction.status === 'paused';
+  };
+
+  // Check if auction can be cancelled
+  const canCancelAuction = (auction: any) => {
+    const hasBids = auction.bidCount && auction.bidCount > 0;
+    const isSellerActionable = auction.status === 'active' || auction.status === 'paused';
+    const isAdmin = user?.role === 'admin';
+    return isSellerActionable && (!hasBids || isAdmin);
+  };
+
   const handleCreateAuction = () => {
     if (!isAuthenticated) {
       showNotification('Please log in to create an auction', 'error');
@@ -426,6 +444,92 @@ const Dashboard: React.FC = () => {
 
     // Navigate to the general create auction page for all users
     navigate('/create-auction');
+  };
+
+  // Extend auction end time
+  const handleExtendAuction = async (auction: Auction) => {
+    if (!auction) return;
+
+    const input = window.prompt('Enter minutes to extend auction end time:', '15');
+    if (input === null) return;
+
+    const minutes = parseInt(input, 10);
+    if (isNaN(minutes) || minutes <= 0) {
+      showNotification('Please enter a valid positive number of minutes', 'error');
+      return;
+    }
+
+    setActionLoading(prev => ({ ...prev, [`extend-${auction._id}`]: true }));
+
+    try {
+      await apiEndpoints.auctions.extend(auction._id, { extensionMinutes: minutes });
+      setMyAuctions(prev => prev.map(a => {
+        if (a._id !== auction._id) return a;
+        const currentEnd = new Date(a.endTime).getTime();
+        const updatedEnd = new Date(currentEnd + minutes * 60000).toISOString();
+        return { ...a, endTime: updatedEnd };
+      }));
+      showNotification(`Auction extended by ${minutes} minute(s)`, 'success');
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error extending auction:', err);
+      let errorMessage = 'Failed to extend auction';
+      if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to extend this auction';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Auction not found';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || 'Cannot extend auction';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      showNotification(errorMessage, 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`extend-${auction._id}`]: false }));
+    }
+  };
+
+  // Cancel auction
+  const handleCancelAuction = (auction: Auction) => {
+    setCancelModal({ isOpen: true, auction });
+  };
+
+  const confirmCancelAuction = async () => {
+    const auction = cancelModal.auction;
+    if (!auction) return;
+
+    let reasonInput: string | null = window.prompt('Optional: Provide a reason for cancellation', '');
+    const reason = reasonInput === null ? '' : (reasonInput || '').trim();
+    if (reason && reason.length < 3) {
+      showNotification('Reason must be at least 3 characters or leave empty', 'error');
+      return;
+    }
+
+    setActionLoading(prev => ({ ...prev, [`cancel-${auction._id}`]: true }));
+
+    try {
+      const payload = reason ? { reason } : {};
+      await apiEndpoints.auctions.cancel(auction._id, payload);
+      showNotification('Auction cancelled successfully', 'success');
+      setMyAuctions(prev => prev.map(a => a._id === auction._id ? { ...a, status: 'cancelled' } : a));
+      setCancelModal({ isOpen: false, auction: null });
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error cancelling auction:', err);
+      let errorMessage = 'Failed to cancel auction';
+      if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to cancel this auction';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Auction not found';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || 'Cannot cancel auction';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      showNotification(errorMessage, 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`cancel-${auction._id}`]: false }));
+    }
   };
 
   if (isLoading) {
@@ -734,6 +838,44 @@ const Dashboard: React.FC = () => {
                                     : (auction.status === 'active' ? 'Pause' : 'Resume')
                                   }
                                 </button>
+                              )}
+
+                              {/* Extend Button */}
+                              {canExtendAuction(auction) ? (
+                                <button
+                                  onClick={() => handleExtendAuction(auction)}
+                                  disabled={actionLoading[`extend-${auction._id}`]}
+                                  className="text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Extend auction end time"
+                                >
+                                  {actionLoading[`extend-${auction._id}`] ? 'Extending...' : 'Extend'}
+                                </button>
+                              ) : (
+                                <span
+                                  className="text-gray-400 cursor-not-allowed"
+                                  title={auction.status === 'ended' ? 'Cannot extend ended auctions' : 'Cannot extend cancelled auctions'}
+                                >
+                                  Extend
+                                </span>
+                              )}
+
+                              {/* Cancel Button */}
+                              {canCancelAuction(auction) ? (
+                                <button
+                                  onClick={() => handleCancelAuction(auction)}
+                                  disabled={actionLoading[`cancel-${auction._id}`]}
+                                  className="text-red-600 hover:text-red-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Cancel auction"
+                                >
+                                  {actionLoading[`cancel-${auction._id}`] ? 'Cancelling...' : 'Cancel'}
+                                </button>
+                              ) : (
+                                <span
+                                  className="text-gray-400 cursor-not-allowed"
+                                  title={auction.bidCount > 0 ? 'Cannot cancel auctions with bids (unless admin)' : 'Cannot cancel this auction'}
+                                >
+                                  Cancel
+                                </span>
                               )}
                               
                               {/* Duplicate Button */}
@@ -1298,6 +1440,20 @@ const Dashboard: React.FC = () => {
         onConfirm={confirmDuplicateAuction}
         auction={duplicateModal.auction}
         loading={actionLoading[`duplicate-${duplicateModal.auction?._id}`]}
+      />
+
+      {/* Cancel Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={cancelModal.isOpen}
+        onClose={() => setCancelModal({ isOpen: false, auction: null })}
+        onConfirm={confirmCancelAuction}
+        title="Cancel Auction"
+        message={`Are you sure you want to cancel "${cancelModal.auction?.title}"? Bidders will be notified.`}
+        confirmText="Cancel Auction"
+        cancelText="Keep Auction"
+        type="danger"
+        icon="warning"
+        loading={actionLoading[`cancel-${cancelModal.auction?._id}`]}
       />
     </div>
   );

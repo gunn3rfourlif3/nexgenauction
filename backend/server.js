@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
+const fs = require('fs');
 const session = require('express-session');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -104,6 +106,16 @@ app.set('io', io);
 
 // Routes
 app.use('/api', apiRoutes);
+
+// Serve frontend build assets if available
+const buildDir = path.join(__dirname, '../frontend/build');
+if (fs.existsSync(buildDir)) {
+  app.use(express.static(buildDir));
+  // Fallback to index.html for client-side routes (non-API)
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(buildDir, 'index.html'));
+  });
+}
 
 // WebSocket connection handling
 io.on('connection', (socket) => {

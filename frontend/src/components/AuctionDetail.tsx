@@ -180,6 +180,13 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
 
   const canBid = auction.status === 'active' && currentUserId && currentUserId !== auction.seller?._id;
   const isOwner = currentUserId === auction.seller?._id;
+  const disableReason = !currentUserId
+    ? 'Log in to bid on this auction'
+    : auction.status !== 'active'
+      ? (auction.status === 'scheduled' ? 'Auction has not started yet' : 'Auction has ended')
+      : isOwner
+        ? 'Sellers cannot bid on their own auctions'
+        : '';
 
   if (loading) {
     return (
@@ -310,45 +317,49 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
             </div>
 
             {/* Bidding Section */}
-            {canBid && (
+            <div className="border-t pt-4">
+              {/* Live Bidding Button */}
+              <div className="mb-4">
+                <button
+                  onClick={() => navigate(`/auctions/${auction._id}/bid`)}
+                  disabled={!canBid}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 font-semibold"
+                  title={!canBid && disableReason ? disableReason : ''}
+                >
+                  <Zap className="w-5 h-5" />
+                  Live Bidding Interface
+                </button>
+                {!canBid && disableReason && (
+                  <p className="text-sm text-gray-600 mt-2">{disableReason}</p>
+                )}
+              </div>
+              
+              {/* Quick Bid Section */}
               <div className="border-t pt-4">
-                {/* Live Bidding Button */}
-                <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">Quick Bid:</p>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="number"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(Number(e.target.value))}
+                    min={auction.currentBid + auction.bidIncrement}
+                    step={auction.bidIncrement}
+                    disabled={!canBid}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
                   <button
-                    onClick={() => navigate(`/auctions/${auction._id}/bid`)}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-md hover:from-green-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 font-semibold"
+                    onClick={handlePlaceBid}
+                    disabled={!canBid || bidAmount <= auction.currentBid}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
                   >
-                    <Zap className="w-5 h-5" />
-                    Live Bidding Interface
+                    Place Bid
                   </button>
                 </div>
-                
-                {/* Quick Bid Section */}
-                <div className="border-t pt-4">
-                  <p className="text-sm text-gray-600 mb-2">Quick Bid:</p>
-                  <div className="flex gap-2 mb-2">
-                    <input
-                      type="number"
-                      value={bidAmount}
-                      onChange={(e) => setBidAmount(Number(e.target.value))}
-                      min={auction.currentBid + auction.bidIncrement}
-                      step={auction.bidIncrement}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                      onClick={handlePlaceBid}
-                      disabled={bidAmount <= auction.currentBid}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
-                    >
-                      Place Bid
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Minimum bid: ${(auction.currentBid + auction.bidIncrement).toLocaleString()}
-                  </p>
-                </div>
+                <p className="text-sm text-gray-600">
+                  Minimum bid: ${(auction.currentBid + auction.bidIncrement).toLocaleString()}
+                </p>
               </div>
-            )}
+            </div>
 
             {/* Bid Count */}
             <div className="flex items-center gap-2 mt-4">

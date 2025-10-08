@@ -12,11 +12,12 @@ const {
   verifyEmail,
   requestPasswordReset,
   resetPassword,
-  getAllUsers
+  getAllUsers,
+  promoteToAdmin
 } = require('../controllers/authController');
 
 // Import middleware
-const { authenticate, requireAdmin } = require('../middleware/auth');
+const { authenticate, requireAdmin, requireSuper } = require('../middleware/auth');
 const {
   validateUserRegistration,
   validateUserLogin,
@@ -136,5 +137,8 @@ router.put('/change-password', [
 
 // Admin routes (require admin privileges)
 router.get('/users', requireAdmin, getAllUsers);
+
+// Super-only: promote a user to admin by ID
+router.patch('/users/:userId/promote', requireSuper, promoteToAdmin);
 
 module.exports = router;

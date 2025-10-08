@@ -3,11 +3,13 @@ import { Zap, Clock, DollarSign, Gavel, User, Cpu } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import api, { apiEndpoints } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 // Styling aligned with AuctionDetail via Tailwind utility classes
 
 const LiveBidding = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const [auction, setAuction] = useState(null);
   const [currentBid, setCurrentBid] = useState(null);
@@ -186,9 +188,19 @@ const LiveBidding = () => {
 
   // Handle outbid notification
   const handleOutbid = useCallback((data) => {
-    setError(`You've been outbid! Current bid: ${formatCurrency(data.currentBid)}`);
-    setTimeout(() => setError(''), 5000);
-  }, [formatCurrency]);
+    try {
+      const previousId = data && data.previousHighestBidderId ? String(data.previousHighestBidderId) : null;
+      const currentUserId = user && (user._id || user.id) ? String(user._id || user.id) : null;
+
+      if (previousId && currentUserId && previousId === currentUserId) {
+        setError(`You've been outbid! Current bid: ${formatCurrency(data.currentBid)}`);
+        setTimeout(() => setError(''), 5000);
+      }
+      // If the event isn't for the current user, ignore it silently
+    } catch (e) {
+      // no-op
+    }
+  }, [formatCurrency, user]);
 
   // Handle bid error
   const handleBidError = useCallback((errorData) => {

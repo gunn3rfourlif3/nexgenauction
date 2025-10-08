@@ -10,9 +10,11 @@
     "dev:test:watchlist": "node scripts/devWatchlistTest.js",
     "dev:test:bid": "node scripts/devBidTest.js",
     "dev:test:notifications": "node scripts/devNotificationsTest.js",
+    "dev:test:auction-create": "node scripts/devAuctionCreateTest.js",
     "dev:bid:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devBidTest.js",
     "dev:notifications:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devNotificationsTest.js",
-    "dev:watchlist:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devWatchlistTest.js"
+    "dev:watchlist:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devWatchlistTest.js",
+    "dev:auction-create:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devAuctionCreateTest.js"
   },
   "keywords": [
     "auction",

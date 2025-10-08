@@ -3,9 +3,10 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const emailService = require('../services/emailService');
 
-// Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+// Generate JWT token (supports optional payload extras in dev)
+const generateToken = (userId, extras = {}) => {
+  const payload = { id: userId, ...extras };
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d'
   });
 };
@@ -13,35 +14,6 @@ const generateToken = (userId) => {
 // Register new user
 const register = async (req, res) => {
   try {
-    // If running without database connection, simulate successful registration
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      const { username, email, password, firstName, lastName, phone, dateOfBirth } = req.body;
-      
-      // Simulate user creation
-      const mockUser = {
-        _id: 'mock_user_id_' + Date.now(),
-        username,
-        email,
-        firstName,
-        lastName,
-        phone,
-        dateOfBirth,
-        createdAt: new Date()
-      };
-
-      // Generate token
-      const token = generateToken(mockUser._id);
-
-      return res.status(201).json({
-        success: true,
-        message: 'User registered successfully (development mode)',
-        data: {
-          user: mockUser,
-          token,
-          emailSent: false
-        }
-      });
-    }
 
     const { username, email, password, firstName, lastName, phone, dateOfBirth } = req.body;
 
@@ -115,30 +87,6 @@ const register = async (req, res) => {
 // Login user
 const login = async (req, res) => {
   try {
-    // If running without database connection, simulate successful login
-    if (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true') {
-      const { email, password } = req.body;
-      
-      // Simulate user login
-      const mockUser = {
-        _id: 'mock_user_id_' + Date.now(),
-        username: 'testuser',
-        email,
-        firstName: 'Test',
-        lastName: 'User',
-        createdAt: new Date()
-      };
-
-      // Generate token
-      const token = generateToken(mockUser._id);
-
-      return res.json({
-        success: true,
-        message: 'Login successful (development mode)',
-        token,
-        user: mockUser
-      });
-    }
 
     const { email, password } = req.body;
 
@@ -193,18 +141,6 @@ const login = async (req, res) => {
 // Get user profile
 const getProfile = async (req, res) => {
   try {
-    // In development without a forced DB connection, return the attached mock user
-    const nodeEnv = process.env.NODE_ENV;
-    const isDevEnv = (nodeEnv || 'development') !== 'production';
-    const forceDb = process.env.FORCE_DB_CONNECTION;
-    if (isDevEnv && forceDb !== 'true') {
-      const devUser = req.user;
-      console.log('getProfile dev fallback. NODE_ENV=', nodeEnv, 'isDevEnv=', isDevEnv, 'FORCE_DB_CONNECTION=', forceDb, 'req.user=', devUser);
-      return res.json({
-        success: true,
-        data: { user: devUser }
-      });
-    }
 
     const user = await User.findById(req.user.id);
     
@@ -556,6 +492,57 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+// Promote a user to admin (super-only)
+const promoteToAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role === 'admin') {
+      const userObj = user.toObject();
+      delete userObj.password;
+      return res.json({
+        success: true,
+        message: 'User is already an admin',
+        data: { user: userObj }
+      });
+    }
+
+    user.role = 'admin';
+    await user.save();
+
+    const updatedUser = user.toObject();
+    delete updatedUser.password;
+
+    return res.json({
+      success: true,
+      message: 'User promoted to admin successfully',
+      data: { user: updatedUser }
+    });
+  } catch (error) {
+    console.error('Promote to admin error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during promotion'
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -566,5 +553,6 @@ module.exports = {
   verifyEmail,
   requestPasswordReset,
   resetPassword,
-  getAllUsers
+  getAllUsers,
+  promoteToAdmin
 };
