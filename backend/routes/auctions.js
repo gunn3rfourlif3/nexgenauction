@@ -86,17 +86,20 @@ router.get('/user/:userId/history', validateObjectId('userId'), requireOwnership
 
 // Current user's auctions (convenience routes)
 router.get('/my/selling', (req, res, next) => {
-  req.params.userId = req.user._id.toString();
+  const uid = (req.user && (req.user._id || req.user.id)) ? (req.user._id || req.user.id).toString() : '';
+  req.params.userId = uid;
   getUserAuctions(req, res, next);
 });
 
 router.get('/my/bidding', (req, res, next) => {
-  req.params.userId = req.user._id.toString();
+  const uid = (req.user && (req.user._id || req.user.id)) ? (req.user._id || req.user.id).toString() : '';
+  req.params.userId = uid;
   getUserBids(req, res, next);
 });
 
 router.get('/my/history', (req, res, next) => {
-  req.params.userId = req.user._id.toString();
+  const uid = (req.user && (req.user._id || req.user.id)) ? (req.user._id || req.user.id).toString() : '';
+  req.params.userId = uid;
   getUserAuctionHistory(req, res, next);
 });
 

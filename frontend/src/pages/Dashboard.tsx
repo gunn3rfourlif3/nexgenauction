@@ -91,6 +91,7 @@ const Dashboard: React.FC = () => {
     isOpen: boolean;
     auction: Auction | null;
   }>({ isOpen: false, auction: null });
+  const [cancelReasonInput, setCancelReasonInput] = useState<string>('');
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -446,16 +447,18 @@ const Dashboard: React.FC = () => {
     navigate('/create-auction');
   };
 
+  // Inline extend controls state
+  const [extendVisible, setExtendVisible] = useState<Record<string, boolean>>({});
+  const [extendMinutes, setExtendMinutes] = useState<Record<string, string>>({});
+
   // Extend auction end time
   const handleExtendAuction = async (auction: Auction) => {
     if (!auction) return;
 
-    const input = window.prompt('Enter minutes to extend auction end time:', '15');
-    if (input === null) return;
-
-    const minutes = parseInt(input, 10);
-    if (isNaN(minutes) || minutes <= 0) {
-      showNotification('Please enter a valid positive number of minutes', 'error');
+    const raw = extendMinutes[auction._id];
+    const minutes = parseInt((raw ?? '').trim(), 10);
+    if (!raw || isNaN(minutes) || minutes <= 0) {
+      showNotification('Enter a valid positive number of minutes', 'error');
       return;
     }
 
@@ -463,6 +466,13 @@ const Dashboard: React.FC = () => {
 
     try {
       await apiEndpoints.auctions.extend(auction._id, { extensionMinutes: minutes });
+      // Hide and clear inline input on success
+      setExtendVisible(prev => ({ ...prev, [auction._id]: false }));
+      setExtendMinutes(prev => {
+        const next = { ...prev };
+        delete next[auction._id];
+        return next;
+      });
       setMyAuctions(prev => prev.map(a => {
         if (a._id !== auction._id) return a;
         const currentEnd = new Date(a.endTime).getTime();
@@ -492,14 +502,13 @@ const Dashboard: React.FC = () => {
   // Cancel auction
   const handleCancelAuction = (auction: Auction) => {
     setCancelModal({ isOpen: true, auction });
+    setCancelReasonInput('');
   };
 
   const confirmCancelAuction = async () => {
     const auction = cancelModal.auction;
     if (!auction) return;
-
-    let reasonInput: string | null = window.prompt('Optional: Provide a reason for cancellation', '');
-    const reason = reasonInput === null ? '' : (reasonInput || '').trim();
+    const reason = (cancelReasonInput || '').trim();
     if (reason && reason.length < 3) {
       showNotification('Reason must be at least 3 characters or leave empty', 'error');
       return;
@@ -513,6 +522,7 @@ const Dashboard: React.FC = () => {
       showNotification('Auction cancelled successfully', 'success');
       setMyAuctions(prev => prev.map(a => a._id === auction._id ? { ...a, status: 'cancelled' } : a));
       setCancelModal({ isOpen: false, auction: null });
+      setCancelReasonInput('');
       fetchDashboardData();
     } catch (err: any) {
       console.error('Error cancelling auction:', err);
@@ -843,7 +853,7 @@ const Dashboard: React.FC = () => {
                               {/* Extend Button */}
                               {canExtendAuction(auction) ? (
                                 <button
-                                  onClick={() => handleExtendAuction(auction)}
+                                  onClick={() => setExtendVisible(prev => ({ ...prev, [auction._id]: !prev[auction._id] }))}
                                   disabled={actionLoading[`extend-${auction._id}`]}
                                   className="text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   title="Extend auction end time"
@@ -857,6 +867,27 @@ const Dashboard: React.FC = () => {
                                 >
                                   Extend
                                 </span>
+                              )}
+
+                              {/* Inline Extend Controls */}
+                              {extendVisible[auction._id] && (
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={extendMinutes[auction._id] ?? ''}
+                                    onChange={(e) => setExtendMinutes(prev => ({ ...prev, [auction._id]: e.target.value }))}
+                                    placeholder="Minutes"
+                                    className="w-20 px-2 py-1 border rounded"
+                                  />
+                                  <button
+                                    onClick={() => handleExtendAuction(auction)}
+                                    disabled={actionLoading[`extend-${auction._id}`]}
+                                    className="text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Confirm
+                                  </button>
+                                </div>
                               )}
 
                               {/* Cancel Button */}
@@ -1454,7 +1485,18 @@ const Dashboard: React.FC = () => {
         type="danger"
         icon="warning"
         loading={actionLoading[`cancel-${cancelModal.auction?._id}`]}
-      />
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Optional reason</label>
+          <input
+            type="text"
+            value={cancelReasonInput}
+            onChange={(e) => setCancelReasonInput(e.target.value)}
+            placeholder="Reason for cancellation (optional)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+        </div>
+      </ConfirmationModal>
     </div>
   );
 };

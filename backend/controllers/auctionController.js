@@ -62,22 +62,10 @@ const getAuctions = async (req, res) => {
       filter.$and = andClauses;
     }
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Execute query
-    const auctions = await Auction.find(filter)
-      .populate('seller', 'username firstName lastName')
-      .populate('winner', 'username firstName lastName')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    // Get total count for pagination
-    const total = await Auction.countDocuments(filter);
-
-    // Dev-mode: when enabled, serve dev catalog for consistent local testing
-    if ((process.env.ENABLE_DEV_MOCK || process.env.NODE_ENV === 'development')) {
+    // Dev-mode: when enabled, serve dev catalog for consistent local testing BEFORE any DB calls
+    const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+      (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+    if (devFallbackEnabled) {
       try {
         const perPage = parseInt(limit);
         const currentPage = parseInt(page);
@@ -165,9 +153,24 @@ const getAuctions = async (req, res) => {
         });
       } catch (fallbackErr) {
         console.error('Dev fallback error:', fallbackErr);
-        // Continue to return DB response if fallback fails
+        // If fallback fails, continue to DB-backed flow below
       }
     }
+
+    // Calculate pagination for DB-backed mode
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Execute query
+    const auctions = await Auction.find(filter)
+      .populate('seller', 'username firstName lastName')
+      .populate('winner', 'username firstName lastName')
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Get total count for pagination
+    const total = await Auction.countDocuments(filter);
+
 
     res.json({
       success: true,
@@ -194,7 +197,18 @@ const getAuctions = async (req, res) => {
 const getAuctionById = async (req, res) => {
   try {
     const { id } = req.params;
-
+    // In development mock mode, serve from in-memory store before any DB calls
+    const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+      (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+    if (devFallbackEnabled) {
+      try {
+        const mockAuction = devMockStore.getAuction(id);
+        try { devMockStore.incrementViews(id); } catch (_) {}
+        return res.json({ success: true, data: { auction: mockAuction } });
+      } catch (e) {
+        // If mock retrieval fails, proceed with DB lookup
+      }
+    }
 
     let auction = await Auction.findById(id)
       .populate('seller', 'username firstName lastName email phone')
@@ -202,6 +216,23 @@ const getAuctionById = async (req, res) => {
       .populate('bids.bidder', 'username firstName lastName');
 
     if (!auction) {
+      // Dev-mode fallback: return mock auction when DB-backed item is not found
+      if (devFallbackEnabled) {
+        try {
+          // Serve from in-memory dev store to keep detail page functional in dev
+          const mockAuction = devMockStore.getAuction(id);
+          // Increment views in dev store when accessed
+          try { devMockStore.incrementViews(id); } catch (_) {}
+          return res.json({
+            success: true,
+            data: { auction: mockAuction }
+          });
+        } catch (e) {
+          // If dev fallback fails unexpectedly, continue with 404
+          // (ensures consistent behavior in non-dev scenarios)
+        }
+      }
+
       return res.status(404).json({
         success: false,
         message: 'Auction not found'
@@ -373,6 +404,31 @@ const updateAuction = async (req, res) => {
     });
   } catch (error) {
     console.error('Update auction error:', error);
+    // Handle Mongoose validation errors explicitly
+    if (error && error.name === 'ValidationError') {
+      const errors = Object.keys(error.errors || {}).map((key) => {
+        const e = error.errors[key];
+        return {
+          field: key,
+          message: e.message,
+          kind: e.kind,
+          value: e.value
+        };
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+    // Duplicate key or other Mongo errors
+    if (error && (error.code === 11000 || error.name === 'MongoServerError')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Database constraint error',
+        detail: error.message
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Server error while updating auction'
@@ -487,15 +543,48 @@ const placeBid = async (req, res) => {
 const getUserAuctions = async (req, res) => {
   try {
     const { page = 1, limit = 12, status } = req.query;
-    const userId = req.params.userId || req.user._id;
+    const userId = req.params.userId || req.user?.id || req.user?._id;
 
     
 
     // Check if user can access these auctions
-    if (userId !== req.user._id.toString() && req.user.role !== 'admin') {
+    if (userId && req.user?._id && userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'You can only view your own auctions'
+      });
+    }
+
+    // Development-mode fallback: serve from in-memory mock store when DB is disabled
+    const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+      (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+    if (devFallbackEnabled) {
+      const allAuctions = devMockStore.listAuctions();
+      const userIdStr = String(userId);
+      // Filter auctions where the current user is the seller
+      const filtered = allAuctions.filter(a => {
+        const sellerId = (a.seller && (a.seller._id || a.seller.id))?.toString();
+        const statusOk = !status || (a.status === status);
+        return sellerId === userIdStr && statusOk;
+      });
+
+      const currentPage = parseInt(page);
+      const perPage = parseInt(limit);
+      const totalItems = filtered.length;
+      const start = (currentPage - 1) * perPage;
+      const paged = filtered.slice(start, start + perPage);
+
+      return res.json({
+        success: true,
+        data: {
+          auctions: paged,
+          pagination: {
+            currentPage,
+            totalPages: Math.ceil(totalItems / perPage),
+            totalItems,
+            itemsPerPage: perPage
+          }
+        }
       });
     }
 
@@ -537,14 +626,61 @@ const getUserAuctions = async (req, res) => {
 const getUserBids = async (req, res) => {
   try {
     const { page = 1, limit = 12 } = req.query;
-    const userId = req.params.userId || req.user._id;
+    // Normalize user id across dev and db contexts
+    const userId = req.params.userId || req.user?.id || req.user?._id;
 
 
     // Check if user can access these bids
-    if (userId !== req.user._id.toString() && req.user.role !== 'admin') {
+    if (userId && req.user?._id && userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'You can only view your own bids'
+      });
+    }
+
+    // Development-mode fallback: serve from in-memory mock store when DB is disabled
+    const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+      (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+    if (devFallbackEnabled) {
+      const allAuctions = devMockStore.listAuctions();
+      const userIdStr = String(userId);
+      // Filter auctions where the user has placed bids
+      const filtered = allAuctions.filter(a =>
+        Array.isArray(a.bids) && a.bids.some(b => (b.bidder && (b.bidder._id || b.bidder.id))?.toString() === userIdStr)
+      );
+      // Prepare response objects with only user's bids and highestUserBid
+      const mapped = filtered.map(a => {
+        const userBids = (a.bids || []).filter(b => (b.bidder && (b.bidder._id || b.bidder.id))?.toString() === userIdStr);
+        const highestUserBid = userBids.length ? Math.max(...userBids.map(b => Number(b.amount))) : null;
+        // Include `bids` alias for compatibility with dev scripts that expect this shape
+        return { ...a, userBids, bids: userBids, highestUserBid };
+      });
+      // Sort by most recent user bid
+      mapped.sort((x, y) => {
+        const xLast = x.userBids.length ? x.userBids[x.userBids.length - 1] : null;
+        const yLast = y.userBids.length ? y.userBids[y.userBids.length - 1] : null;
+        const xTs = xLast ? new Date(xLast.timestamp || xLast.bidTime || 0).getTime() : 0;
+        const yTs = yLast ? new Date(yLast.timestamp || yLast.bidTime || 0).getTime() : 0;
+        return yTs - xTs;
+      });
+
+      const currentPage = parseInt(page);
+      const perPage = parseInt(limit);
+      const totalItems = mapped.length;
+      const start = (currentPage - 1) * perPage;
+      const paged = mapped.slice(start, start + perPage);
+
+      return res.json({
+        success: true,
+        data: {
+          auctions: paged,
+          pagination: {
+            currentPage,
+            totalPages: Math.ceil(totalItems / perPage),
+            totalItems,
+            itemsPerPage: perPage
+          }
+        }
       });
     }
 

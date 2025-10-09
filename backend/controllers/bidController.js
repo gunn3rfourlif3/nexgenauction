@@ -1,6 +1,7 @@
 const Bid = require('../models/Bid');
 const Auction = require('../models/Auction');
 const User = require('../models/User');
+const devMockStore = require('../services/devMockStore');
 
 // Bid increment rules
 const BID_INCREMENT_RULES = {
@@ -28,25 +29,31 @@ const calculateMinimumIncrement = (currentBid) => {
   return BID_INCREMENT_RULES[10000];
 };
 
-// Place a bid
-const placeBid = async (req, res) => {
-  try {
-    const { auctionId } = req.params;
-    const { amount, bidType = 'manual', maxAutoBid } = req.body;
-    const userId = req.user._id || req.user.id;
-    const io = req.app.get('io');
-    // Development fallback removed; enforce database-only logic
+  // Place a bid
+  const placeBid = async (req, res) => {
+    try {
+      const { auctionId } = req.params;
+      const { amount, bidType = 'manual', maxAutoBid } = req.body;
+      const userId = req.user._id || req.user.id;
+      const io = req.app.get('io');
+      const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+        (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+      let usedDevMock = false;
 
     // Validate auction exists and is active
-    const auction = await Auction.findById(auctionId);
+    let auction = null;
+    // In dev fallback mode, short-circuit to mock store and NEVER touch the DB
+    if (devFallbackEnabled) {
+      auction = devMockStore.getAuction(auctionId);
+      usedDevMock = true;
+    } else {
+      auction = await Auction.findById(auctionId);
+    }
     if (!auction) {
-      return res.status(404).json({
-        success: false,
-        message: 'Auction not found'
-      });
+      return res.status(404).json({ success: false, message: 'Auction not found' });
     }
 
-    if (auction.status !== 'active') {
+    if ((auction.status || 'active') !== 'active') {
       return res.status(400).json({
         success: false,
         message: 'Auction is not active'
@@ -54,7 +61,7 @@ const placeBid = async (req, res) => {
     }
 
     // Check if auction has ended
-    if (new Date() > auction.endTime) {
+    if (new Date() > new Date(auction.endTime)) {
       return res.status(400).json({
         success: false,
         message: 'Auction has ended'
@@ -62,16 +69,26 @@ const placeBid = async (req, res) => {
     }
 
     // Check if user is the seller
-    if (auction.seller.toString() === userId) {
+    const sellerId = (auction.seller && (typeof auction.seller === 'object' ? (auction.seller._id || auction.seller.id) : auction.seller))?.toString();
+    if (sellerId === userId) {
       return res.status(400).json({
         success: false,
         message: 'You cannot bid on your own auction'
       });
     }
 
+    // Ensure bidder has sufficient wallet balance to place this bid
+    let user = null;
+    if (!usedDevMock) {
+      user = await User.findById(userId).select('accountBalance currency');
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+    }
+
     // Get current highest bid
-    const currentHighestBid = await Bid.getHighestBid(auctionId);
-    const currentAmount = currentHighestBid ? currentHighestBid.amount : auction.startingPrice;
+    const currentHighestBid = usedDevMock ? (Array.isArray(auction.bids) ? auction.bids[auction.bids.length - 1] : null) : await Bid.getHighestBid(auctionId);
+    const currentAmount = currentHighestBid ? currentHighestBid.amount : (auction.currentBid || auction.startingPrice);
 
     // Calculate minimum required bid
     const minimumIncrement = calculateMinimumIncrement(currentAmount);
@@ -86,28 +103,40 @@ const placeBid = async (req, res) => {
     }
 
     // Check if user is already the highest bidder
-    if (currentHighestBid && currentHighestBid.bidder._id.toString() === userId) {
+    if (!usedDevMock && currentHighestBid && currentHighestBid.bidder._id.toString() === userId) {
       return res.status(400).json({
         success: false,
         message: 'You are already the highest bidder'
       });
     }
 
+    // Check wallet balance after validating amount but before placing bid
+    if (!usedDevMock) {
+      const availableBalance = typeof user.accountBalance === 'number' ? user.accountBalance : 0;
+      if (availableBalance < amount) {
+        return res.status(400).json({ success: false, message: `Insufficient balance to place bid. Required: $${amount.toFixed(2)}, Available: $${availableBalance.toFixed(2)}` });
+      }
+    }
+
     // Create new bid
-    const newBid = new Bid({
-      auction: auctionId,
-      bidder: userId,
-      amount,
-      bidType,
-      maxAutoBid: bidType === 'auto' ? maxAutoBid : null,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent')
-    });
-
-    await newBid.save();
-
-    // Populate bidder information
-    await newBid.populate('bidder', 'username firstName lastName');
+    let newBid;
+    if (usedDevMock) {
+      const placed = devMockStore.placeBid(auctionId, req.user, amount, bidType, (bidType === 'auto' ? maxAutoBid : null));
+      newBid = placed.bid;
+      auction = placed.auction;
+    } else {
+      newBid = new Bid({
+        auction: auctionId,
+        bidder: userId,
+        amount,
+        bidType,
+        maxAutoBid: bidType === 'auto' ? maxAutoBid : null,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      await newBid.save();
+      await newBid.populate('bidder', 'username firstName lastName');
+    }
 
     // Update auction current bid and apply anti-sniping soft-close if needed
     auction.currentBid = amount;
@@ -116,13 +145,15 @@ const placeBid = async (req, res) => {
     if (remaining > 0 && remaining <= SOFT_CLOSE_THRESHOLD_MS) {
       auction.endTime = new Date(new Date(auction.endTime).getTime() + SOFT_CLOSE_EXTENSION_MS);
     }
-    await auction.save();
+    if (!usedDevMock) {
+      await auction.save();
+    }
 
     // Compute total bids from Bid collection for accurate count
-    const totalBids = await Bid.countDocuments({ auction: auctionId, isActive: true });
+    const totalBids = usedDevMock ? (Array.isArray(auction.bids) ? auction.bids.length : (auction.bidCount || 0)) : await Bid.countDocuments({ auction: auctionId, isActive: true });
 
     // Emit real-time update to all users in the auction room
-    io.to(`auction-${auctionId}`).emit('new-bid', {
+    if (io && io.to) io.to(`auction-${auctionId}`).emit('new-bid', {
       bid: {
         _id: newBid._id,
         amount: newBid.amount,
@@ -142,11 +173,13 @@ const placeBid = async (req, res) => {
     });
 
     // Notify room listeners that the previous highest bidder has been outbid
-    if (currentHighestBid && currentHighestBid.bidder && currentHighestBid.bidder._id) {
+    if (!usedDevMock && currentHighestBid) {
       try {
-        io.to(`auction-${auctionId}`).emit('outbid', {
+        const prevIdRaw = (currentHighestBid.bidder && (currentHighestBid.bidder._id || currentHighestBid.bidder)) || null;
+        const previousHighestBidderId = prevIdRaw && prevIdRaw.toString ? prevIdRaw.toString() : null;
+        if (io && io.to) io.to(`auction-${auctionId}`).emit('outbid', {
           auctionId,
-          previousHighestBidderId: currentHighestBid.bidder._id.toString(),
+          previousHighestBidderId,
           currentBid: auction.currentBid,
           timestamp: Date.now()
         });
@@ -156,14 +189,14 @@ const placeBid = async (req, res) => {
     }
 
     // Emit auction status update for soft-close end time changes
-    io.to(`auction-${auctionId}`).emit('auction-update', {
+    if (io && io.to) io.to(`auction-${auctionId}`).emit('auction-update', {
       endTime: auction.endTime,
       currentBid: auction.currentBid,
       bidCount: totalBids
     });
 
     // Handle auto-bidding for other users
-    if (bidType === 'manual') {
+    if (!usedDevMock && bidType === 'manual') {
       await processAutoBids(auctionId, amount, userId, io);
     }
 
@@ -202,6 +235,13 @@ const processAutoBids = async (auctionId, newBidAmount, excludeUserId, io) => {
       const nextBidAmount = newBidAmount + minimumIncrement;
 
       if (nextBidAmount <= autoBid.maxAutoBid) {
+        // Ensure auto-bidder has sufficient balance for the next bid
+        const autoBidderUser = await User.findById(autoBid.bidder._id).select('accountBalance');
+        const autoBidderBalance = autoBidderUser && typeof autoBidderUser.accountBalance === 'number' ? autoBidderUser.accountBalance : 0;
+        if (autoBidderBalance < nextBidAmount) {
+          // Skip placing auto-bid due to insufficient funds
+          continue;
+        }
         // Place auto-bid
         const newAutoBid = new Bid({
           auction: auctionId,
@@ -366,6 +406,19 @@ const getUserBids = async (req, res) => {
     const { auctionId } = req.params;
     const userId = req.user.id;
 
+    // Development-mode fallback: read from mock store when DB is disabled
+    const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+      (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+    if (devFallbackEnabled) {
+      try {
+        const a = devMockStore.getAuction(auctionId);
+        const bids = (a.bids || []).filter(b => (b.bidder && (b.bidder._id || b.bidder.id))?.toString() === userId.toString());
+        return res.json({ success: true, data: { bids } });
+      } catch (e) {
+        // Fall through to DB-backed implementation
+      }
+    }
+
     const userBids = await Bid.getUserBids(auctionId, userId);
 
     res.json({
@@ -388,6 +441,28 @@ const setAutoBid = async (req, res) => {
     const { auctionId } = req.params;
     const { maxAmount } = req.body;
     const userId = req.user._id || req.user.id;
+
+    // Enable development fallback when DB is disabled
+    const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+      (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+    if (devFallbackEnabled) {
+      // Validate auction exists in mock store and is active
+      const mockAuction = devMockStore.getAuction(auctionId);
+      if ((mockAuction.status || 'active') !== 'active') {
+        return res.status(400).json({ success: false, message: 'Auction is not available for bidding' });
+      }
+      const sellerId = (mockAuction.seller && (typeof mockAuction.seller === 'object' ? (mockAuction.seller._id || mockAuction.seller.id) : mockAuction.seller))?.toString();
+      if (sellerId === String(userId)) {
+        return res.status(400).json({ success: false, message: 'You cannot set auto-bid on your own auction' });
+      }
+      const currentPrice = typeof mockAuction.currentBid === 'number' ? mockAuction.currentBid : mockAuction.startingPrice;
+      if (Number(maxAmount) <= Number(currentPrice)) {
+        return res.status(400).json({ success: false, message: `Auto-bid maximum must be higher than current price ($${Number(currentPrice).toFixed(2)})` });
+      }
+      // Record auto-bid preference in mock store
+      devMockStore.setAutoBid(auctionId, req.user, maxAmount);
+      return res.json({ success: true, message: 'Auto-bid set successfully', data: { maxAmount } });
+    }
 
     // Validate auction
     const auction = await Auction.findById(auctionId);
@@ -413,6 +488,16 @@ const setAutoBid = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Auto-bid maximum must be higher than current price ($${currentPrice.toFixed(2)})`
+      });
+    }
+
+    // Ensure user has sufficient balance for the auto-bid maximum
+    const user = await User.findById(userId).select('accountBalance');
+    const availableBalance = user && typeof user.accountBalance === 'number' ? user.accountBalance : 0;
+    if (availableBalance < maxAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient balance for auto-bid maximum. Required: $${Number(maxAmount).toFixed(2)}, Available: $${availableBalance.toFixed(2)}`
       });
     }
 

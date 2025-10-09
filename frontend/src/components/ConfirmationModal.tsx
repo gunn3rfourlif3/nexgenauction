@@ -12,6 +12,7 @@ interface ConfirmationModalProps {
   type?: 'danger' | 'warning' | 'info';
   icon?: 'delete' | 'edit' | 'duplicate' | 'warning';
   loading?: boolean;
+  children?: React.ReactNode;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -24,7 +25,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   cancelText = 'Cancel',
   type = 'warning',
   icon = 'warning',
-  loading = false
+  loading = false,
+  children
 }) => {
   if (!isOpen) return null;
 
@@ -76,10 +78,15 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 <h3 className="text-base font-semibold leading-6 text-gray-900">
                   {title}
                 </h3>
-                <div className="mt-2">
+                <div className="mt-2 space-y-3">
                   <p className="text-sm text-gray-500">
                     {message}
                   </p>
+                  {children && (
+                    <div className="mt-2">
+                      {children}
+                    </div>
+                  )}
                 </div>
               </div>
               {/* Close button */}

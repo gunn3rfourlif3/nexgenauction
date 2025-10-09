@@ -8,9 +8,8 @@ const isDevEnv = typeof window !== 'undefined' &&
 const devPorts = new Set(['3000', '3001', '3002', '3003', '5173']);
 const shouldUseRelativeApi = isDevEnv && devPorts.has(window.location.port || '');
 
-const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 const defaultBackendPort = '5006';
-const absoluteDevApi = `http://${hostname}:${defaultBackendPort}/api`;
+const absoluteDevApi = `http://127.0.0.1:${defaultBackendPort}/api`;
 
 const API_BASE_URL = (() => {
   const envUrl = process.env.REACT_APP_API_URL;

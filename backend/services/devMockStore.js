@@ -262,5 +262,25 @@ module.exports = {
       if (!store.has(id)) store.set(id, { ...CATALOG[id] });
     }
     return Array.from(store.values());
+  },
+  // Record a user's auto-bid preference in dev mode
+  setAutoBid: (auctionId, bidder, maxAmount) => {
+    const a = getAuction(auctionId);
+    const bidderId = (bidder && typeof bidder === 'object') ? (bidder._id || bidder.id) : bidder;
+    if (!a.autoBids) a.autoBids = [];
+    // Deactivate any existing auto-bid for this user
+    a.autoBids = a.autoBids.map(ab => {
+      if (String(ab.bidderId) === String(bidderId)) {
+        return { ...ab, isActive: false };
+      }
+      return ab;
+    });
+    a.autoBids.push({
+      bidderId: String(bidderId),
+      maxAmount: Number(maxAmount),
+      isActive: true,
+      createdAt: new Date()
+    });
+    return { auction: a };
   }
 };

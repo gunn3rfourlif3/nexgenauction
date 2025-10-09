@@ -13,24 +13,34 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Dev-mode fallback: if DB is not forced, trust decoded payload as user
+    const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+      (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+    if (devFallbackEnabled) {
+      const payloadUser = decoded || {};
+      const isActive = typeof payloadUser.isActive === 'undefined' ? true : !!payloadUser.isActive;
+      if (!isActive) {
+        return res.status(401).json({ success: false, message: 'Account is deactivated.' });
+      }
+      req.user = payloadUser;
+      return next();
+    }
+
     const user = await User.findById(decoded.id).select('-password');
-    
     if (!user) {
       return res.status(401).json({ 
         success: false,
         message: 'Invalid token. User not found.' 
       });
     }
-
     if (!user.isActive) {
       return res.status(401).json({ 
         success: false,
         message: 'Account is deactivated.' 
       });
     }
-
     req.user = user;
     next();
   } catch (error) {
@@ -108,9 +118,16 @@ const optionalAuth = async (req, res, next) => {
     
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select('-password');
-      if (user && user.isActive) {
-        req.user = user;
+      const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+        (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+      if (devFallbackEnabled) {
+        const isActive = typeof decoded.isActive === 'undefined' ? true : !!decoded.isActive;
+        if (isActive) req.user = decoded;
+      } else {
+        const user = await User.findById(decoded.id).select('-password');
+        if (user && user.isActive) {
+          req.user = user;
+        }
       }
     }
     

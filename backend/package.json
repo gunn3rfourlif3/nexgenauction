@@ -11,10 +11,12 @@
     "dev:test:bid": "node scripts/devBidTest.js",
     "dev:test:notifications": "node scripts/devNotificationsTest.js",
     "dev:test:auction-create": "node scripts/devAuctionCreateTest.js",
+    "dev:test:topup": "node scripts/devTopUpTest.js",
     "dev:bid:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devBidTest.js",
     "dev:notifications:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devNotificationsTest.js",
     "dev:watchlist:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devWatchlistTest.js",
-    "dev:auction-create:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devAuctionCreateTest.js"
+    "dev:auction-create:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& node scripts/devAuctionCreateTest.js",
+    "dev:topup:demo": "set DEV_EMAIL=dev@example.com&& set DEV_PASSWORD=x&& set TOP_UP_AMOUNT=500&& node scripts/devTopUpTest.js"
   },
   "keywords": [
     "auction",

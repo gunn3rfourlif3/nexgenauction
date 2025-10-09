@@ -1,10 +1,28 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { v4: uuidv4 } = require('uuid');
+const devWallet = require('../services/devWalletStore');
+const isDev = (process.env.NODE_ENV === 'development');
+const isDbDisabledInDev = isDev && process.env.FORCE_DB_CONNECTION !== 'true';
 
 // Get account balance and basic info
 const getAccountBalance = async (req, res) => {
   try {
+    if (isDbDisabledInDev) {
+      const w = devWallet.getWallet(req.user.id);
+      return res.json({
+        success: true,
+        data: {
+          balance: w.balance || 0,
+          currency: w.currency || 'USD',
+          lastTransactionDate: w.lastTransactionDate,
+          formattedBalance: new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: w.currency || 'USD'
+          }).format(w.balance || 0)
+        }
+      });
+    }
     const user = await User.findById(req.user.id).select('accountBalance currency lastTransactionDate');
     
     if (!user) {
@@ -114,8 +132,31 @@ const topUpAccount = async (req, res) => {
   try {
     const { amount, paymentMethod, currency = 'USD' } = req.body;
     
-    // In development mode, simulate successful payment
-    if (process.env.NODE_ENV === 'development') {
+    // In development with DB disabled, use dev wallet store
+    if (isDbDisabledInDev) {
+      const result = devWallet.topUp(req.user.id, { amount, currency, paymentMethod });
+      return res.json({
+        success: true,
+        message: 'Account topped up successfully',
+        data: {
+          transaction: {
+            id: result.transaction.transactionId,
+            amount: result.transaction.amount,
+            currency: result.transaction.currency,
+            status: result.transaction.status,
+            createdAt: result.transaction.createdAt
+          },
+          newBalance: result.newBalance,
+          formattedBalance: new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: result.currency || 'USD'
+          }).format(result.newBalance)
+        }
+      });
+    }
+
+    // In development mode with DB enabled, simulate successful payment
+    if (isDev) {
       const user = await User.findById(req.user.id);
       if (!user) {
         return res.status(404).json({
@@ -127,7 +168,7 @@ const topUpAccount = async (req, res) => {
       const balanceBefore = user.accountBalance || 0;
       const balanceAfter = balanceBefore + parseFloat(amount);
       
-      // Create transaction record
+      // Create transaction record (ensure schema compliance)
       const transaction = new Transaction({
         transactionId: uuidv4(),
         type: 'deposit',
@@ -135,13 +176,21 @@ const topUpAccount = async (req, res) => {
         user: req.user.id,
         amount: parseFloat(amount),
         currency: currency,
+        exchangeRate: 1.0,
+        baseAmount: parseFloat(amount),
         balanceBefore: balanceBefore,
         balanceAfter: balanceAfter,
         status: 'completed',
-        paymentMethod: paymentMethod || 'development',
-        description: `Account top-up via ${paymentMethod || 'development'}`,
+        // Use allowed enum for dev deposits
+        paymentMethod: 'wallet',
+        description: `Account top-up via ${paymentMethod || 'internal'}`,
         gatewayTransactionId: `dev_${uuidv4()}`,
-        processedAt: new Date()
+        processedAt: new Date(),
+        metadata: {
+          source: 'development',
+          reference: 'dev_topup',
+          tags: ['dev', 'topup']
+        }
       });
       
       await transaction.save();

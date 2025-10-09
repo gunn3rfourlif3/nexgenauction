@@ -52,29 +52,10 @@ const EditAuction: React.FC = () => {
     fetchAuction();
   }, [id, isAuthenticated, user]);
 
-  const handleFormSubmit = async (formData: any) => {
-    if (!id) return;
-
-    try {
-      setLoading(true);
-      
-      const { data: res } = await apiEndpoints.auctions.update(id, formData);
-      
-      if (res?.success) {
-        showNotification('Auction updated successfully!', 'success');
-        navigate('/dashboard');
-      } else {
-        showNotification(res?.message || 'Failed to update auction', 'error');
-      }
-    } catch (err: any) {
-      console.error('Error updating auction:', err);
-      showNotification(
-        err.response?.data?.message || 'Failed to update auction',
-        'error'
-      );
-    } finally {
-      setLoading(false);
-    }
+  const handleFormSubmit = (_formData: any) => {
+    // The AdminAuctionForm handles PUT/POST. On success, we just navigate.
+    showNotification('Auction updated successfully!', 'success');
+    navigate('/dashboard');
   };
 
   const handleCancel = () => {
@@ -146,33 +127,33 @@ const EditAuction: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={handleCancel}
-                className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
-              >
-                <ArrowLeft className="w-5 h-5 mr-2" />
-                Back to Dashboard
-              </button>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Gavel className="w-5 h-5 text-blue-600" />
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={handleCancel}
+                  className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Back to Dashboard
+                </button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Gavel className="w-5 h-5 text-blue-600" />
               <span className="text-sm font-medium text-gray-700">Edit Auction</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Edit Auction</h1>
-          <p className="text-gray-600 mt-2">Update your auction details below.</p>
+          <p className="text-gray-600 mt-2">Update the auction details below.</p>
         </div>
         
         <AdminAuctionForm

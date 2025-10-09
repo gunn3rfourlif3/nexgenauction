@@ -73,6 +73,10 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
 
+  // Edit mode detection available across component scope
+  const isEditMode = Boolean((initialData as any)?.['_id']);
+  const targetId = (initialData as any)?.['_id'];
+
   const [formData, setFormData] = useState<AuctionFormData>({
     title: '',
     description: '',
@@ -127,6 +131,7 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
     { value: 'fair', label: 'Fair' },
     { value: 'poor', label: 'Poor' }
   ];
+  const allowedConditionValues = conditions.map(c => c.value);
 
   const statusOptions = [
     { value: 'draft', label: 'Draft' },
@@ -162,10 +167,18 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
         order: index
       }));
     }
+
+    // Normalize condition to allowed enum values if incoming data is legacy/unsupported
+    const incomingCondition = (initialData as any).condition;
+    const normalizedCondition = allowedConditionValues.includes(incomingCondition as any)
+      ? incomingCondition
+      : 'good';
+
     setFormData(prev => ({
       ...prev,
       ...initialData,
-      images: normalizedImages ?? prev.images
+      images: normalizedImages ?? prev.images,
+      condition: normalizedCondition
     }));
   }, [initialData]);
 
@@ -286,8 +299,8 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user || user.role !== 'admin') {
-      showNotification('Admin privileges required', 'error');
+    if (!user) {
+      showNotification('Please log in to continue', 'error');
       return;
     }
 
@@ -335,28 +348,76 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auctions/admin', {
-        method: 'POST',
+      // Determine mode and endpoint
+
+      // Build payload with only allowed fields to avoid sending server-managed properties
+      const payload: any = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        subcategory: formData.subcategory,
+        condition: allowedConditionValues.includes(formData.condition) ? formData.condition : 'good',
+        conditionReport: formData.conditionReport,
+        images: formData.images,
+        startingPrice: formData.startingPrice,
+        reservePrice: formData.reservePrice,
+        bidIncrement: formData.bidIncrement,
+        status: formData.status,
+        shippingInfo: formData.shippingInfo,
+        tags: formData.tags,
+        featured: formData.featured
+      };
+
+      if (isEditMode) {
+        const currentStartMs = new Date(formData.startTime).getTime();
+        const initialStartMs = initialData?.startTime ? new Date((initialData as any).startTime).getTime() : undefined;
+        const currentEndMs = new Date(formData.endTime).getTime();
+        const initialEndMs = initialData?.endTime ? new Date((initialData as any).endTime).getTime() : undefined;
+
+        if (!initialStartMs || currentStartMs !== initialStartMs) {
+          payload.startTime = new Date(formData.startTime).toISOString();
+        } else {
+          delete payload.startTime;
+        }
+
+        if (!initialEndMs || currentEndMs !== initialEndMs) {
+          payload.endTime = new Date(formData.endTime).toISOString();
+        } else {
+          delete payload.endTime;
+        }
+      } else {
+        // Create mode: normalize both times
+        payload.startTime = new Date(formData.startTime).toISOString();
+        payload.endTime = new Date(formData.endTime).toISOString();
+      }
+
+      const url = isEditMode
+        ? `/api/auctions/${targetId}`
+        : (user?.role === 'admin' ? '/api/auctions/admin' : '/api/auctions');
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
 
       if (data.success) {
-        showNotification('Auction created successfully!', 'success');
+        showNotification(isEditMode ? 'Auction updated successfully!' : 'Auction created successfully!', 'success');
         if (onSubmit) {
           onSubmit(formData);
         }
       } else {
-        showNotification(data.message || 'Failed to create auction', 'error');
+        showNotification(data.message || (isEditMode ? 'Failed to update auction' : 'Failed to create auction'), 'error');
       }
     } catch (error) {
-      console.error('Error creating auction:', error);
-      showNotification('Failed to create auction', 'error');
+      console.error(isEditMode ? 'Error updating auction:' : 'Error creating auction:', error);
+      showNotification(isEditMode ? 'Failed to update auction' : 'Failed to create auction', 'error');
     } finally {
       setLoading(false);
     }
@@ -374,8 +435,10 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg">
       <div className="p-6 border-b border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-900">Create New Auction</h2>
-        <p className="text-gray-600 mt-2">Fill in the details to create a new auction listing</p>
+        <h2 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Auction' : 'Create New Auction'}</h2>
+        <p className="text-gray-600 mt-2">
+          {isEditMode ? 'Modify the auction details.' : 'Fill in the details to create a new auction listing'}
+        </p>
       </div>
 
       {/* Tabs */}
@@ -943,15 +1006,15 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Creating...
+                {isEditMode ? 'Updating...' : 'Creating...'}
               </>
             ) : (
-              'Create Auction'
+              isEditMode ? 'Update Auction' : 'Create Auction'
             )}
           </button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </form>
+  </div>
   );
 };
 
