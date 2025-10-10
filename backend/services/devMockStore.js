@@ -255,6 +255,28 @@ module.exports = {
   updateAuctionStatus,
   extendAuctionDev,
   cancelAuctionDev,
+  // End an auction immediately in dev mode and compute winner
+  endAuctionDev: (id) => {
+    const a = getAuction(id);
+    // If already ended or cancelled, do nothing
+    if (a.status === 'ended' || a.status === 'cancelled') return a;
+    // Mark as ended now
+    a.status = 'ended';
+    a.endTime = new Date();
+    // Determine winner by highest bid meeting reserve (if any)
+    const bids = Array.isArray(a.bids) ? a.bids.slice() : [];
+    if (bids.length > 0) {
+      const highestBid = bids.reduce((prev, current) => (
+        (prev && prev.amount > current.amount) ? prev : current
+      ));
+      const reserve = typeof a.reservePrice === 'number' ? a.reservePrice : undefined;
+      if (reserve === undefined || (highestBid && highestBid.amount >= reserve)) {
+        a.winner = highestBid.bidder;
+        a.winningBid = highestBid.amount;
+      }
+    }
+    return a;
+  },
   // List all auctions currently in the dev store
   listAuctions: () => {
     // Ensure catalog items are included even if not yet accessed

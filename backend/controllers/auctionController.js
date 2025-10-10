@@ -1193,6 +1193,33 @@ module.exports = {
       res.status(500).json({ success: false, message: 'Server error while cancelling auction' });
     }
   },
+  // Development-only endpoint: end auction immediately in dev mock store
+  devEndAuctionNow: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+        ((process.env.NODE_ENV === 'development') && process.env.FORCE_DB_CONNECTION !== 'true');
+      if (!devFallbackEnabled) {
+        return res.status(403).json({ success: false, message: 'Dev end-now is disabled' });
+      }
+      const auction = devMockStore.endAuctionDev(id);
+      const io = req.app.get('io');
+      if (io && io.to) {
+        io.to(`auction-${id}`).emit('auction-update', {
+          status: auction.status,
+          winner: auction.winner,
+          winningBid: auction.winningBid,
+          endTime: auction.endTime,
+          currentBid: auction.currentBid,
+          bidCount: auction.bidCount,
+        });
+      }
+      return res.json({ success: true, message: 'Auction ended (dev)', data: { auction } });
+    } catch (error) {
+      console.error('Dev end auction error:', error);
+      res.status(500).json({ success: false, message: 'Server error while ending auction (dev)' });
+    }
+  },
   getUserAuctions,
   getUserBids,
   getUserAuctionHistory,

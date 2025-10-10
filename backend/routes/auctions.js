@@ -21,7 +21,8 @@ const {
   markAllNotificationsAsRead,
   updateAuctionStatus,
   extendAuction,
-  cancelAuction
+  cancelAuction,
+  devEndAuctionNow
 } = require('../controllers/auctionController');
 
 // Import middleware
@@ -55,6 +56,8 @@ const validateCancel = [
 router.get('/', validateAuctionQuery, getAuctions);
 router.get('/categories', getCategories);
 router.get('/:id', validateObjectId('id'), optionalAuth, getAuctionById);
+// Development-only: end auction immediately (public, guarded by dev flag in controller)
+router.post('/:id/dev/end-now', validateObjectId('id'), devEndAuctionNow);
 
 // Protected routes (require authentication)
 router.use(authenticate);
