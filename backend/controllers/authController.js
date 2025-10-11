@@ -3,6 +3,53 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const emailService = require('../services/emailService');
 
+// Dev-mode in-memory store for mock users and permissions
+// Used only when ENABLE_DEV_MOCK or development without FORCE_DB_CONNECTION
+const devMockState = {
+  initialized: false,
+  users: {}
+};
+
+const initDevMockUsers = (adminEmail) => {
+  const nowIso = new Date().toISOString();
+  devMockState.users = {
+    '000000000000000000000001': {
+      _id: '000000000000000000000001',
+      username: 'admin',
+      firstName: 'Admin',
+      lastName: 'User',
+      email: adminEmail || 'admin@nexusauctions.com',
+      role: 'admin',
+      isActive: true,
+      createdAt: nowIso,
+      permissions: { canSell: true, canBid: true, canModerate: true }
+    },
+    '000000000000000000000002': {
+      _id: '000000000000000000000002',
+      username: 'dev',
+      firstName: 'Dev',
+      lastName: 'User',
+      email: 'dev@example.com',
+      role: 'user',
+      isActive: true,
+      createdAt: nowIso,
+      permissions: { canSell: true, canBid: true, canModerate: false }
+    },
+    '000000000000000000000003': {
+      _id: '000000000000000000000003',
+      username: 'seller',
+      firstName: 'Sample',
+      lastName: 'Seller',
+      email: 'seller@example.com',
+      role: 'user',
+      isActive: true,
+      createdAt: nowIso,
+      permissions: { canSell: true, canBid: true, canModerate: false }
+    }
+  };
+  devMockState.initialized = true;
+};
+
 // Generate JWT token (supports optional payload extras in dev)
 const generateToken = (userId, extras = {}) => {
   const payload = { id: userId, ...extras };
@@ -495,41 +542,12 @@ const getAllUsers = async (req, res) => {
     if (devFallbackEnabled) {
       const { page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
-      // Define a small mock dataset including the current user and common dev accounts
-      const nowIso = new Date().toISOString();
-      const adminEmail = (req.user && req.user.email) || 'admin@nexusauctions.com';
-      const mockUsers = [
-        {
-          _id: '000000000000000000000001',
-          username: 'admin',
-          firstName: 'Admin',
-          lastName: 'User',
-          email: adminEmail,
-          role: 'admin',
-          isActive: true,
-          createdAt: nowIso
-        },
-        {
-          _id: '000000000000000000000002',
-          username: 'dev',
-          firstName: 'Dev',
-          lastName: 'User',
-          email: 'dev@example.com',
-          role: 'user',
-          isActive: true,
-          createdAt: nowIso
-        },
-        {
-          _id: '000000000000000000000003',
-          username: 'seller',
-          firstName: 'Sample',
-          lastName: 'Seller',
-          email: 'seller@example.com',
-          role: 'user',
-          isActive: true,
-          createdAt: nowIso
-        }
-      ];
+      // Initialize dev mock users once with permissions
+      if (!devMockState.initialized) {
+        const adminEmail = (req.user && req.user.email) || 'admin@nexusauctions.com';
+        initDevMockUsers(adminEmail);
+      }
+      const mockUsers = Object.values(devMockState.users);
 
       // Apply search filter
       const filtered = search
@@ -690,5 +708,168 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   getAllUsers,
-  promoteToAdmin
+  promoteToAdmin,
+  // Update user role (super-only)
+  updateUserRole: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body || {};
+
+      if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required' });
+      }
+      if (!['user', 'admin', 'super'].includes(role)) {
+        return res.status(400).json({ success: false, message: 'Invalid role provided' });
+      }
+
+      const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+        (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+      if (devFallbackEnabled) {
+        const nowIso = new Date().toISOString();
+        return res.json({
+          success: true,
+          message: 'User role updated (development simulation)',
+          data: {
+            user: {
+              _id: String(userId || '000000000000000000000001'),
+              username: 'dev-user',
+              email: 'dev@example.com',
+              role,
+              isActive: true,
+              createdAt: nowIso,
+              permissions: { canSell: true, canBid: true, canModerate: role !== 'user' }
+            }
+          }
+        });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      user.role = role;
+      await user.save();
+
+      const userObj = user.toObject();
+      delete userObj.password;
+      return res.json({ success: true, message: 'User role updated successfully', data: { user: userObj } });
+    } catch (error) {
+      console.error('Update user role error:', error);
+      return res.status(500).json({ success: false, message: 'Server error while updating user role' });
+    }
+  },
+  // Update user granular permissions (admin or super)
+  updateUserPermissions: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { permissions } = req.body || {};
+
+      if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required' });
+      }
+      if (!permissions || typeof permissions !== 'object') {
+        return res.status(400).json({ success: false, message: 'Invalid permissions payload' });
+      }
+
+      const allowedKeys = ['canSell', 'canBid', 'canModerate'];
+      const updatePermissions = {};
+      for (const key of allowedKeys) {
+        if (permissions.hasOwnProperty(key)) {
+          const val = permissions[key];
+          if (typeof val !== 'boolean') {
+            return res.status(400).json({ success: false, message: `Permission ${key} must be a boolean` });
+          }
+          updatePermissions[key] = val;
+        }
+      }
+
+      const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+        (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+      if (devFallbackEnabled) {
+        // Ensure dev store initialized
+        if (!devMockState.initialized) {
+          const adminEmail = (req.user && req.user.email) || 'admin@nexusauctions.com';
+          initDevMockUsers(adminEmail);
+        }
+        const id = String(userId);
+        const existing = devMockState.users[id];
+        if (!existing) {
+          return res.status(404).json({ success: false, message: 'User not found (dev)' });
+        }
+        const newPerms = Object.assign({}, existing.permissions || {}, updatePermissions);
+        devMockState.users[id] = { ...existing, permissions: newPerms };
+        return res.json({ success: true, message: 'User permissions updated (dev)', data: { user: devMockState.users[id] } });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      user.permissions = Object.assign({}, user.permissions?.toObject?.() || user.permissions || {}, updatePermissions);
+      await user.save();
+
+      const userObj = user.toObject();
+      delete userObj.password;
+      return res.json({ success: true, message: 'User permissions updated successfully', data: { user: userObj } });
+    } catch (error) {
+      console.error('Update user permissions error:', error);
+      return res.status(500).json({ success: false, message: 'Server error while updating user permissions' });
+    }
+  },
+  // Update user active status (admin only)
+  updateUserStatus: async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { isActive } = req.body || {};
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid payload: isActive must be a boolean'
+        });
+      }
+
+      const devFallbackEnabled = (process.env.ENABLE_DEV_MOCK === 'true') ||
+        (process.env.NODE_ENV === 'development' && process.env.FORCE_DB_CONNECTION !== 'true');
+
+      if (devFallbackEnabled) {
+        // Simulate success in dev without DB
+        return res.json({
+          success: true,
+          message: 'User status updated (development simulation)',
+          data: {
+            user: {
+              _id: String(userId || '000000000000000000000001'),
+              username: 'dev-user',
+              email: 'dev@example.com',
+              role: 'user',
+              isActive
+            }
+          }
+        });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      user.isActive = isActive;
+      await user.save();
+
+      const userObj = user.toObject();
+      delete userObj.password;
+
+      return res.json({
+        success: true,
+        message: 'User status updated successfully',
+        data: { user: userObj }
+      });
+    } catch (error) {
+      console.error('Update user status error:', error);
+      return res.status(500).json({ success: false, message: 'Server error while updating user status' });
+    }
+  }
 };

@@ -16,6 +16,7 @@ import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
+import AdminUsers from './pages/AdminUsers';
 import LiveBidding from './components/LiveBidding';
 import AdminCreateAuction from './pages/AdminCreateAuction';
 import CreateAuction from './pages/CreateAuction';
@@ -48,7 +49,8 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/create-auction" element={<CreateAuction />} />
               <Route path="/admin/create-auction" element={<AdminCreateAuction />} />
               <Route path="/checkout-test" element={<CheckoutTest />} />

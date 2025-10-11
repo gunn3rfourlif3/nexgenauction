@@ -1364,13 +1364,13 @@ const Dashboard: React.FC = () => {
                   <p className="text-sm text-gray-600 mb-4">
                     Manage user accounts, roles, and permissions.
                   </p>
-                  <button
+                  <a
+                    href="/admin/users"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm"
-                    disabled
                   >
                     <User className="w-4 h-4" />
-                    Coming Soon
-                  </button>
+                    Manage Users
+                  </a>
                 </div>
 
                 {/* System Stats Card */}

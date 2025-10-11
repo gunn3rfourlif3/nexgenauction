@@ -67,6 +67,12 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin', 'super'],
     default: 'user'
   },
+  // Granular permissions for feature access; defaults allow normal usage
+  permissions: {
+    canSell: { type: Boolean, default: true },
+    canBid: { type: Boolean, default: true },
+    canModerate: { type: Boolean, default: false }
+  },
   isVerified: {
     type: Boolean,
     default: false

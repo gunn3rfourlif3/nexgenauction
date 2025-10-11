@@ -81,6 +81,14 @@ export const apiEndpoints = {
     profile: () => api.get('/auth/profile'),
     updateProfile: (data: any) => api.put('/auth/profile', data),
     changePassword: (data: any) => api.put('/auth/change-password', data),
+    // Admin-only user management
+    getUsers: (params?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }) =>
+      api.get('/auth/users', { params }),
+    promoteToAdmin: (userId: string) => api.patch(`/auth/users/${userId}/promote`),
+    updateUserStatus: (userId: string, isActive: boolean) => api.patch(`/auth/users/${userId}/status`, { isActive }),
+    updateUserRole: (userId: string, role: 'user' | 'admin' | 'super') => api.patch(`/auth/users/${userId}/role`, { role }),
+    updateUserPermissions: (userId: string, permissions: { canSell?: boolean; canBid?: boolean; canModerate?: boolean }) =>
+      api.patch(`/auth/users/${userId}/permissions`, { permissions }),
   },
 
   // Auction endpoints

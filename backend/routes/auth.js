@@ -24,6 +24,7 @@ const {
   handleValidationErrors
 } = require('../middleware/validation');
 const { body } = require('express-validator');
+const { updateUserStatus, updateUserRole, updateUserPermissions } = require('../controllers/authController');
 
 // Public routes
 router.post('/register', validateUserRegistration, register);
@@ -137,8 +138,27 @@ router.put('/change-password', [
 
 // Admin routes (require admin privileges)
 router.get('/users', requireAdmin, getAllUsers);
+router.patch('/users/:userId/status', requireAdmin, [
+  body('isActive').isBoolean().withMessage('isActive must be a boolean'),
+  handleValidationErrors
+], updateUserStatus);
 
 // Super-only: promote a user to admin by ID
 router.patch('/users/:userId/promote', requireSuper, promoteToAdmin);
+
+// Super-only: update a user's role directly
+router.patch('/users/:userId/role', requireSuper, [
+  body('role').isIn(['user', 'admin', 'super']).withMessage('Invalid role'),
+  handleValidationErrors
+], updateUserRole);
+
+// Admin or super: update granular permissions
+router.patch('/users/:userId/permissions', requireAdmin, [
+  body('permissions').isObject().withMessage('permissions must be an object'),
+  body('permissions.canSell').optional().isBoolean().withMessage('canSell must be boolean'),
+  body('permissions.canBid').optional().isBoolean().withMessage('canBid must be boolean'),
+  body('permissions.canModerate').optional().isBoolean().withMessage('canModerate must be boolean'),
+  handleValidationErrors
+], updateUserPermissions);
 
 module.exports = router;

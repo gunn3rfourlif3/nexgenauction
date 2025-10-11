@@ -21,7 +21,7 @@ interface User {
   googleId?: string;
   facebookId?: string;
   githubId?: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'super';
   isActive: boolean;
   createdAt: string;
   lastLogin?: string;
@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess } = useNotification();
 
   const isAuthenticated = !!user && !!token;
 
@@ -102,7 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!isLoading && token) {
       verifyToken();
     }
-  }, [token, isLoading]);
+  }, [token, isLoading, user]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
