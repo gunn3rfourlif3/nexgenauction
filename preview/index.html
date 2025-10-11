@@ -79,6 +79,15 @@
 
     // --- Catalog preview helpers ---
     function getApiBase() {
+      // Prefer relative '/api' when served via preview-server proxy
+      try {
+        const host = window.location.hostname;
+        const port = String(window.location.port || '');
+        const devPorts = new Set(['3000','3001','3002','3003','5500']);
+        if ((host === 'localhost' || host === '127.0.0.1') && devPorts.has(port)) {
+          return '/api';
+        }
+      } catch {}
       return (localStorage.getItem('API_URL') || 'http://localhost:5006/api');
     }
 
@@ -102,7 +111,8 @@
     async function fetchAuctionsList() {
       const token = localStorage.getItem('token');
       const base = getApiBase();
-      const url = `${base}/auctions?limit=12&sortBy=endDate&sortOrder=asc`;
+      // Use validated params: status=scheduled, sort=startTime asc, limit=12
+      const url = `${base}/auctions?status=scheduled&sort=startTime&limit=12&page=1`;
       const res = await fetch(url, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
       const json = await res.json();
       const auctions = json.data?.auctions || json.auctions || [];

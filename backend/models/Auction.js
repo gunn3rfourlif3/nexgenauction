@@ -138,7 +138,7 @@ const auctionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'scheduled', 'active', 'paused', 'ended', 'cancelled'],
+  enum: ['draft', 'upcoming', 'active', 'paused', 'ended', 'cancelled'],
     default: 'draft'
   },
   winner: {
@@ -324,7 +324,7 @@ auctionSchema.methods.checkAndEndAuction = function() {
 auctionSchema.pre('save', function(next) {
   const now = new Date();
   
-  if (this.status === 'scheduled' && now >= this.startTime) {
+  if (this.status === 'upcoming' && now >= this.startTime) {
     this.status = 'active';
   }
   

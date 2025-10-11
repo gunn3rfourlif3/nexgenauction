@@ -49,7 +49,7 @@ interface Auction {
   bids: Bid[];
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended';
+  status: 'upcoming' | 'active' | 'ended';
   seller: {
     _id: string;
     username: string;

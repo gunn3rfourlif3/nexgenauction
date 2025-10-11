@@ -27,7 +27,7 @@ interface Auction {
   bidIncrement: number;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended';
+  status: 'upcoming' | 'active' | 'ended';
   seller: {
     _id: string;
     username: string;

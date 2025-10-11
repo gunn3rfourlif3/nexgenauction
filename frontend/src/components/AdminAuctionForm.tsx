@@ -135,7 +135,7 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
 
   const statusOptions = [
     { value: 'draft', label: 'Draft' },
-    { value: 'scheduled', label: 'Scheduled' },
+    { value: 'upcoming', label: 'Upcoming' },
     { value: 'active', label: 'Active' }
   ];
 

@@ -24,7 +24,7 @@ interface Auction {
   bidIncrement: number;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended';
+  status: 'upcoming' | 'active' | 'ended';
   seller: {
     _id: string;
     username: string;
@@ -76,7 +76,7 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-600 bg-green-100';
-      case 'scheduled': return 'text-blue-600 bg-blue-100';
+    case 'upcoming': return 'text-blue-600 bg-blue-100';
       case 'ended': return 'text-gray-600 bg-gray-100';
       default: return 'text-gray-600 bg-gray-100';
     }
@@ -220,7 +220,7 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
                     ? formatTimeRemaining(auction.timeRemaining)
                     : auction.status === 'ended' 
                     ? 'Ended' 
-                    : 'Scheduled'
+                    : 'Upcoming'
                   }
                 </span>
               </div>

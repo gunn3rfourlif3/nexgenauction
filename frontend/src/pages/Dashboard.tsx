@@ -44,7 +44,7 @@ interface Auction {
   currentBid: number;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended' | 'paused' | 'cancelled';
+  status: 'upcoming' | 'active' | 'ended' | 'paused' | 'cancelled';
   seller: {
     _id: string;
     username: string;
@@ -381,7 +381,7 @@ const Dashboard: React.FC = () => {
       setMyAuctions(prev => 
         prev.map(auction => 
           auction._id === auctionId 
-            ? { ...auction, status: newStatus as 'scheduled' | 'active' | 'ended' | 'paused' }
+        ? { ...auction, status: newStatus as 'upcoming' | 'active' | 'ended' | 'paused' }
             : auction
         )
       );

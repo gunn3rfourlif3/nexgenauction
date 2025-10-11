@@ -8,7 +8,7 @@ const isDevEnv = typeof window !== 'undefined' &&
 const devPorts = new Set(['3000', '3001', '3002', '3003', '5173']);
 const shouldUseRelativeApi = isDevEnv && devPorts.has(window.location.port || '');
 
-const defaultBackendPort = '5006';
+const defaultBackendPort = '5007';
 const absoluteDevApi = `http://127.0.0.1:${defaultBackendPort}/api`;
 
 const API_BASE_URL = (() => {

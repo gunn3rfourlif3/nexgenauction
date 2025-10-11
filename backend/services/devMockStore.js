@@ -122,6 +122,86 @@ const CATALOG = (() => {
       bidCount: 0,
       winner: null
     }
+    ,
+// Upcoming auctions for development catalog
+    '607f1f77bcf86cd799439101': {
+      _id: '607f1f77bcf86cd799439101',
+      title: 'Leica M3 Rangefinder Camera with Summicron 50mm',
+      description: 'Classic Leica M3 camera body paired with a Summicron 50mm lens. Excellent optics, CLA serviced.',
+      category: 'collectibles',
+      subcategory: 'cameras',
+      startingPrice: 1800,
+      currentBid: 1800,
+      bidIncrement: 50,
+    status: 'upcoming',
+      condition: 'good',
+      featured: false,
+      images: [
+        { url: 'https://images.unsplash.com/photo-1518773553398-650c184e0bb3?w=800&h=600&fit=crop', alt: 'Leica M3 front view', isPrimary: true, order: 1 },
+        { url: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop', alt: 'Summicron 50mm lens', isPrimary: false, order: 2 }
+      ],
+      startTime: new Date(Date.now() + 12 * 60 * 60 * 1000), // starts in 12 hours
+      endTime: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+      seller: { ...DEFAULT_SELLER, username: 'rangefinderfan' },
+      views: 42,
+      tags: ['leica', 'm3', 'summicron', 'rangefinder', 'camera'],
+      bids: [],
+      watchedBy: [],
+      bidCount: 0,
+      winner: null
+    },
+    '607f1f77bcf86cd799439102': {
+      _id: '607f1f77bcf86cd799439102',
+      title: 'Omega Speedmaster Professional “Moonwatch”',
+      description: 'Iconic chronograph in excellent condition with bracelet and box set.',
+      category: 'fashion',
+      subcategory: 'watches',
+      startingPrice: 3200,
+      currentBid: 3200,
+      bidIncrement: 100,
+    status: 'upcoming',
+      condition: 'like-new',
+      featured: true,
+      images: [
+        { url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop', alt: 'Omega Speedmaster dial', isPrimary: true, order: 1 },
+        { url: 'https://images.unsplash.com/photo-1520523830893-9800a8a207b4?w=800&h=600&fit=crop', alt: 'Moonwatch bracelet', isPrimary: false, order: 2 }
+      ],
+      startTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // starts in 24 hours
+      endTime: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+      seller: { ...DEFAULT_SELLER, username: 'watchcollector' },
+      views: 65,
+      tags: ['omega', 'speedmaster', 'moonwatch', 'chronograph', 'luxury'],
+      bids: [],
+      watchedBy: [],
+      bidCount: 0,
+      winner: null
+    },
+    '607f1f77bcf86cd799439103': {
+      _id: '607f1f77bcf86cd799439103',
+      title: 'First Edition "The Great Gatsby" by F. Scott Fitzgerald',
+      description: 'Rare first edition copy with original jacket (restored). A cornerstone of 20th-century literature.',
+      category: 'books',
+      subcategory: 'rare-books',
+      startingPrice: 5000,
+      currentBid: 5000,
+      bidIncrement: 250,
+    status: 'upcoming',
+      condition: 'fair',
+      featured: true,
+      images: [
+        { url: 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=800&h=600&fit=crop', alt: 'Great Gatsby cover', isPrimary: true, order: 1 },
+        { url: 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=800&h=600&fit=crop', alt: 'Vintage book pages', isPrimary: false, order: 2 }
+      ],
+      startTime: new Date(Date.now() + 36 * 60 * 60 * 1000), // starts in 36 hours
+      endTime: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
+      seller: { ...DEFAULT_SELLER, username: 'rarebookdealer' },
+      views: 28,
+      tags: ['first-edition', 'fitzgerald', 'gatsby', 'literature', 'rare'],
+      bids: [],
+      watchedBy: [],
+      bidCount: 0,
+      winner: null
+    }
   };
 })();
 

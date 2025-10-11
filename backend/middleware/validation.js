@@ -244,7 +244,7 @@ const validateAuctionQuery = [
 
   query('status')
     .optional()
-    .isIn(['scheduled', 'active', 'ended', 'cancelled'])
+    .isIn(['upcoming', 'active', 'paused', 'ended', 'cancelled'])
     .withMessage('Invalid status'),
   
   query('minPrice')

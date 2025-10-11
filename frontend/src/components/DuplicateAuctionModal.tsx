@@ -16,7 +16,7 @@ interface Auction {
   currentBid: number;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended' | 'paused' | 'cancelled';
+  status: 'upcoming' | 'active' | 'ended' | 'paused' | 'cancelled';
   seller: {
     _id: string;
     username: string;

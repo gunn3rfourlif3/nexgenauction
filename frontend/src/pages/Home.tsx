@@ -56,6 +56,16 @@ const Home: React.FC = () => {
           auctions = res.data?.data?.auctions || res.data?.auctions || res.data || [];
         }
 
+        // Fallback: if no featured auctions found, fetch popular active auctions
+        if (!Array.isArray(auctions) || auctions.length === 0) {
+          try {
+            const fallbackRes = await apiEndpoints.auctions.getAll({ status: 'active', limit: 6, sort: '-views' });
+            auctions = fallbackRes.data?.data?.auctions || fallbackRes.data?.auctions || fallbackRes.data || [];
+          } catch (fallbackErr) {
+            console.warn('Fallback active auctions fetch failed:', fallbackErr);
+          }
+        }
+
         // Normalize dev-mode variations (images as strings, endDate -> endTime)
         auctions = Array.isArray(auctions) ? auctions.map((a) => {
           const copy = { ...a };
