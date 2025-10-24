@@ -179,25 +179,36 @@ const Home: React.FC = () => {
       )}
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Welcome to Nexus Auctions
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
-              Discover unique items, bid with confidence, and experience the future of online auctions
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/auctions"
-                className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors duration-200"
-              >
-                Browse Auctions
-              </Link>
-              <button className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors duration-200">
-                Start Selling
-              </button>
+      <section className="relative text-white">
+        {/* Background image for auction theme */}
+        <img
+          src={process.env.REACT_APP_HERO_IMAGE_URL || '/assets/nexus-logo.png'}
+          alt="Nexus Auctions hero"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        {/* Overlay to ensure text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/30" />
+        {/* Content */}
+        <div className="relative py-24 md:py-32">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-4xl md:text-6xl font-bold mb-6">
+                Welcome to Nexus Auctions
+              </h1>
+              <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
+                Discover unique items, bid with confidence, and experience the future of online auctions
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link
+                  to="/auctions"
+                  className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors duration-200"
+                >
+                  Browse Auctions
+                </Link>
+                <button className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors duration-200">
+                  Start Selling
+                </button>
+              </div>
             </div>
           </div>
         </div>
