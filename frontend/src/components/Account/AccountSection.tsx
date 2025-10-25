@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wallet, CreditCard, History, BarChart3 } from 'lucide-react';
+import { History, BarChart3 } from 'lucide-react';
 import AccountBalance from './AccountBalance';
 import TopUpForm from './TopUpForm';
 import TransactionHistory from './TransactionHistory';

@@ -18,6 +18,15 @@ const Toast: React.FC<ToastProps> = ({ id, message, type, duration = 5000, onClo
     return () => clearTimeout(timer);
   }, []);
 
+  // Effect moved below handleClose to avoid TDZ and include dependency
+
+  const handleClose = React.useCallback(() => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      onClose(id);
+    }, 300); // Match the transition duration
+  }, [id, onClose]);
+
   useEffect(() => {
     if (duration > 0) {
       const timer = setTimeout(() => {
@@ -25,14 +34,7 @@ const Toast: React.FC<ToastProps> = ({ id, message, type, duration = 5000, onClo
       }, duration);
       return () => clearTimeout(timer);
     }
-  }, [duration]);
-
-  const handleClose = () => {
-    setIsLeaving(true);
-    setTimeout(() => {
-      onClose(id);
-    }, 300); // Match the transition duration
-  };
+  }, [duration, handleClose]);
 
   const getToastStyles = () => {
     const baseStyles = "flex items-center p-4 mb-4 text-sm rounded-lg shadow-lg transition-all duration-300 ease-in-out transform";

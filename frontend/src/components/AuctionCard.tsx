@@ -61,7 +61,6 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
   const { user } = useAuth();
   const { showNotification } = useNotification();
   const primaryImage = auction.images?.find(img => img.isPrimary) || auction.images?.[0];
-  const timeLeft = auction.timeRemaining ? new Date(auction.timeRemaining) : null;
 
   const formatTimeRemaining = (timeRemaining: number) => {
     const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));

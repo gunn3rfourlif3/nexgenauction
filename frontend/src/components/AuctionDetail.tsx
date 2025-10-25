@@ -5,13 +5,10 @@ import {
   Heart, 
   Clock, 
   Eye, 
-  Tag, 
   User, 
   Shield, 
   AlertCircle,
   TrendingUp,
-  Calendar,
-  DollarSign,
   Zap
 } from 'lucide-react';
 

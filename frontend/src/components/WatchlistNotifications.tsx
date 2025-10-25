@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotification } from '../contexts/NotificationContext';
 import { Bell, Clock, DollarSign, Gavel } from 'lucide-react';
 import api from '../services/api';
 
@@ -22,14 +21,14 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
   onNotificationClick
 }) => {
   const { user } = useAuth();
-  const { showNotification } = useNotification();
+  // removed: const { showNotification } = useNotification();
   const [notifications, setNotifications] = useState<WatchlistNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Fetch notifications
-  const fetchNotifications = async () => {
+  const fetchNotifications = React.useCallback(async () => {
     if (!user) return;
 
     try {
@@ -55,7 +54,7 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Mark notification as read
   const markAsRead = async (notificationId: string) => {
@@ -143,7 +142,7 @@ const WatchlistNotifications: React.FC<WatchlistNotificationsProps> = ({
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, fetchNotifications]);
 
   // Show browser notification for new watchlist updates
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuctionGrid from '../components/AuctionGrid';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,7 +65,7 @@ const Watchlist: React.FC = () => {
   }, [user, navigate]);
 
   // Fetch watchlist
-  const fetchWatchlist = async (page = 1) => {
+  const fetchWatchlist = useCallback(async (page = 1) => {
     if (!user) return;
 
     try {
@@ -88,7 +88,7 @@ const Watchlist: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, pagination.itemsPerPage, showNotification]);
 
   // Handle watchlist toggle (remove from watchlist)
   const handleWatchlistToggle = async (auctionId: string, isWatched: boolean) => {
@@ -167,7 +167,7 @@ const Watchlist: React.FC = () => {
     if (user) {
       fetchWatchlist();
     }
-  }, [user]);
+  }, [user, fetchWatchlist]);
 
   if (!user) {
     return null; // Will redirect in useEffect

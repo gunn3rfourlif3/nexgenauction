@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CreditCard, Wallet, DollarSign, Loader2 } from 'lucide-react';
+import { CreditCard, DollarSign, Loader2 } from 'lucide-react';
 import { apiEndpoints } from '../../services/api';
 import { toast } from 'react-hot-toast';
 

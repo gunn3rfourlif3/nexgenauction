@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import './CheckoutFlow.css';
@@ -132,30 +132,22 @@ const CheckoutFlowContent: React.FC<CheckoutFlowProps> = ({ auction, onSuccess, 
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [savePaymentMethod, setSavePaymentMethod] = useState(false);
 
-  useEffect(() => {
-    loadSupportedCurrencies();
-    calculatePaymentSummary();
-  }, [auction, selectedCurrency]);
+  // Effect moved below memoized loaders to reference them safely
 
-  const loadSupportedCurrencies = async () => {
+  const loadSupportedCurrencies = useCallback(async () => {
     try {
       const response = await fetch('/api/currencies/supported');
       const data = await response.json();
       
       if (data.success) {
         setSupportedCurrencies(data.data.currencies.map((c: any) => c.code));
-        
-        // Load exchange rates if currency is different from auction currency
-        if (selectedCurrency !== auction.currency) {
-          await loadExchangeRates();
-        }
       }
     } catch (error) {
       console.error('Failed to load supported currencies:', error);
     }
-  };
+  }, []);
 
-  const loadExchangeRates = async () => {
+  const loadExchangeRates = useCallback(async () => {
     try {
       const response = await fetch(`/api/currencies/rates?from=${auction.currency}&to=${selectedCurrency}`);
       const data = await response.json();
@@ -166,9 +158,10 @@ const CheckoutFlowContent: React.FC<CheckoutFlowProps> = ({ auction, onSuccess, 
     } catch (error) {
       console.error('Failed to load exchange rates:', error);
     }
-  };
+  }, [auction, selectedCurrency]);
 
-  const calculatePaymentSummary = async () => {
+
+  const calculatePaymentSummary = useCallback(async () => {
     try {
       const baseAmount = auction.currentBid;
       const convertedAmount = selectedCurrency !== auction.currency 
@@ -197,12 +190,26 @@ const CheckoutFlowContent: React.FC<CheckoutFlowProps> = ({ auction, onSuccess, 
     } catch (error) {
       console.error('Failed to calculate payment summary:', error);
     }
-  };
+  }, [auction, selectedCurrency, exchangeRates]);
+
+  useEffect(() => {
+    const run = async () => {
+      await loadSupportedCurrencies();
+      if (selectedCurrency !== auction.currency) {
+        await loadExchangeRates();
+      }
+      await calculatePaymentSummary();
+    };
+    run();
+  }, [auction, selectedCurrency, loadSupportedCurrencies, loadExchangeRates, calculatePaymentSummary]);
 
   const handleCurrencyChange = async (newCurrency: string) => {
     setSelectedCurrency(newCurrency);
     if (newCurrency !== auction.currency) {
       await loadExchangeRates();
+      await calculatePaymentSummary();
+    } else {
+      await calculatePaymentSummary();
     }
   };
 

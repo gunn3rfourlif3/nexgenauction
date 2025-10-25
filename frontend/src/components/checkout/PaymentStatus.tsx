@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './PaymentStatus.css';
 
 interface PaymentStatusProps {
@@ -56,19 +56,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (paymentId) {
-      loadPaymentDetails();
-      loadTransactionHistory();
-      
-      // Set up polling for status updates
-      const interval = setInterval(() => {
-        refreshPaymentStatus();
-      }, 10000); // Poll every 10 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [paymentId]);
+  // Effect moved below memoized callbacks to avoid TDZ on dependencies
 
   useEffect(() => {
     if (payment?.status && onStatusChange) {
@@ -76,7 +64,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     }
   }, [payment?.status, onStatusChange]);
 
-  const loadPaymentDetails = async () => {
+  const loadPaymentDetails = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/payments/${paymentId}`, {
@@ -98,9 +86,9 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     } finally {
       setLoading(false);
     }
-  };
+  }, [paymentId]);
 
-  const loadTransactionHistory = async () => {
+  const loadTransactionHistory = useCallback(async () => {
     try {
       const response = await fetch(`/api/payments/${paymentId}/transactions`, {
         headers: {
@@ -116,9 +104,9 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     } catch (error) {
       console.error('Failed to load transaction history:', error);
     }
-  };
+  }, [paymentId]);
 
-  const refreshPaymentStatus = async () => {
+  const refreshPaymentStatus = useCallback(async () => {
     if (refreshing) return;
     
     try {
@@ -139,7 +127,22 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [paymentId, refreshing]);
+
+  // Initialize data and polling after callbacks are declared
+  useEffect(() => {
+    if (paymentId) {
+      loadPaymentDetails();
+      loadTransactionHistory();
+      
+      // Set up polling for status updates
+      const interval = setInterval(() => {
+        refreshPaymentStatus();
+      }, 10000); // Poll every 10 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [paymentId, loadPaymentDetails, loadTransactionHistory, refreshPaymentStatus]);
 
   const handleRefund = async () => {
     if (!payment || !window.confirm('Are you sure you want to request a refund?')) {

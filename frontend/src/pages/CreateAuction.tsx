@@ -6,7 +6,7 @@ import { ArrowLeft, Gavel } from 'lucide-react';
 
 const CreateAuction: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Redirect if not authenticated
   React.useEffect(() => {

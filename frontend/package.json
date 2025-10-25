@@ -29,6 +29,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:direct": "node node_modules/react-scripts/scripts/build.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "preview": "npx serve -s build"

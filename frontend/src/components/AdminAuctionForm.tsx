@@ -5,9 +5,8 @@ import {
   Upload, 
   X, 
   Plus, 
-  Calendar, 
   DollarSign, 
-  Package, 
+ 
   Tag,
   FileText,
   Shield,
@@ -180,7 +179,7 @@ const AdminAuctionForm: React.FC<AdminAuctionFormProps> = ({
       images: normalizedImages ?? prev.images,
       condition: normalizedCondition
     }));
-  }, [initialData]);
+  }, [initialData, allowedConditionValues]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({

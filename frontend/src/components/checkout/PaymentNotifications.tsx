@@ -33,23 +33,24 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
 }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const addNotificationRef = React.useRef<(notification: Notification) => void>(() => {});
+  const handlersRef = React.useRef<{
+    handlePaymentStatusUpdate: (payload: any) => void;
+    handlePaymentConfirmation: (payload: any) => void;
+    handlePaymentFailed: (payload: any) => void;
+    handleRefundProcessed: (payload: any) => void;
+    handleEscrowReleased: (payload: any) => void;
+  }>({
+    handlePaymentStatusUpdate: () => {},
+    handlePaymentConfirmation: () => {},
+    handlePaymentFailed: () => {},
+    handleRefundProcessed: () => {},
+    handleEscrowReleased: () => {}
+  });
 
-  useEffect(() => {
-    // Initialize WebSocket connection for real-time notifications
-    initializeWebSocket();
-    
-    // Load recent notifications
-    loadRecentNotifications();
+  // Effect moved below memoized callbacks to reference them in dependencies
 
-    return () => {
-      // Cleanup WebSocket connection
-      if ((window as any).paymentWebSocket) {
-        (window as any).paymentWebSocket.close();
-      }
-    };
-  }, [userId]);
-
-  const initializeWebSocket = () => {
+  const initializeWebSocket = useCallback(() => {
     if (!userId) return;
 
     const wsUrl = `${process.env.REACT_APP_WS_URL || 'ws://localhost:3001'}/payments`;
@@ -70,7 +71,26 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
+        if (!handlersRef.current) return;
+        switch (data.type) {
+          case 'payment_status_update':
+            handlersRef.current.handlePaymentStatusUpdate(data.payload);
+            break;
+          case 'payment_confirmation':
+            handlersRef.current.handlePaymentConfirmation(data.payload);
+            break;
+          case 'payment_failed':
+            handlersRef.current.handlePaymentFailed(data.payload);
+            break;
+          case 'refund_processed':
+            handlersRef.current.handleRefundProcessed(data.payload);
+            break;
+          case 'escrow_released':
+            handlersRef.current.handleEscrowReleased(data.payload);
+            break;
+          default:
+            console.log('Unknown WebSocket message type:', data.type);
+        }
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
       }
@@ -95,31 +115,11 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
 
     // Store WebSocket instance globally for cleanup
     (window as any).paymentWebSocket = ws;
-  };
+  }, [userId]);
 
-  const handleWebSocketMessage = (data: any) => {
-    switch (data.type) {
-      case 'payment_status_update':
-        handlePaymentStatusUpdate(data.payload);
-        break;
-      case 'payment_confirmation':
-        handlePaymentConfirmation(data.payload);
-        break;
-      case 'payment_failed':
-        handlePaymentFailed(data.payload);
-        break;
-      case 'refund_processed':
-        handleRefundProcessed(data.payload);
-        break;
-      case 'escrow_released':
-        handleEscrowReleased(data.payload);
-        break;
-      default:
-        console.log('Unknown WebSocket message type:', data.type);
-    }
-  };
 
-  const handlePaymentStatusUpdate = (payload: any) => {
+
+  const handlePaymentStatusUpdate = useCallback((payload: any) => {
     const notification: Notification = {
       id: `payment_status_${payload.paymentId}_${Date.now()}`,
       type: getNotificationTypeFromStatus(payload.status),
@@ -139,10 +139,12 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
       ] : undefined
     };
 
-    addNotification(notification);
-  };
+    if (addNotificationRef.current) {
+      addNotificationRef.current(notification);
+    }
+  }, []);
 
-  const handlePaymentConfirmation = (payload: any) => {
+  const handlePaymentConfirmation = useCallback((payload: any) => {
     const notification: Notification = {
       id: `payment_confirmed_${payload.paymentId}_${Date.now()}`,
       type: 'success',
@@ -166,10 +168,12 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
       ]
     };
 
-    addNotification(notification);
-  };
+    if (addNotificationRef.current) {
+      addNotificationRef.current(notification);
+    }
+  }, []);
 
-  const handlePaymentFailed = (payload: any) => {
+  const handlePaymentFailed = useCallback((payload: any) => {
     const notification: Notification = {
       id: `payment_failed_${payload.paymentId}_${Date.now()}`,
       type: 'error',
@@ -193,10 +197,12 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
       ]
     };
 
-    addNotification(notification);
-  };
+    if (addNotificationRef.current) {
+      addNotificationRef.current(notification);
+    }
+  }, []);
 
-  const handleRefundProcessed = (payload: any) => {
+  const handleRefundProcessed = useCallback((payload: any) => {
     const notification: Notification = {
       id: `refund_processed_${payload.paymentId}_${Date.now()}`,
       type: 'info',
@@ -215,10 +221,12 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
       ]
     };
 
-    addNotification(notification);
-  };
+    if (addNotificationRef.current) {
+      addNotificationRef.current(notification);
+    }
+  }, []);
 
-  const handleEscrowReleased = (payload: any) => {
+  const handleEscrowReleased = useCallback((payload: any) => {
     const notification: Notification = {
       id: `escrow_released_${payload.paymentId}_${Date.now()}`,
       type: 'success',
@@ -237,8 +245,10 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
       ]
     };
 
-    addNotification(notification);
-  };
+    if (addNotificationRef.current) {
+      addNotificationRef.current(notification);
+    }
+  }, []);
 
   const getNotificationTypeFromStatus = (status: string): Notification['type'] => {
     switch (status) {
@@ -256,7 +266,7 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
     }
   };
 
-  const loadRecentNotifications = async () => {
+  const loadRecentNotifications = useCallback(async () => {
     if (!userId) return;
 
     try {
@@ -278,7 +288,19 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
     } catch (error) {
       console.error('Failed to load recent notifications:', error);
     }
-  };
+  }, [userId, maxNotifications]);
+
+  // Initialize WebSocket and load recent notifications after callbacks are declared
+  useEffect(() => {
+    initializeWebSocket();
+    loadRecentNotifications();
+
+    return () => {
+      if ((window as any).paymentWebSocket) {
+        (window as any).paymentWebSocket.close();
+      }
+    };
+  }, [userId, initializeWebSocket, loadRecentNotifications]);
 
   const addNotification = useCallback((notification: Notification) => {
     setNotifications(prev => {
@@ -303,6 +325,17 @@ const PaymentNotifications: React.FC<PaymentNotificationsProps> = ({
       });
     }
   }, [maxNotifications]);
+
+  useEffect(() => {
+    addNotificationRef.current = addNotification;
+    handlersRef.current = {
+      handlePaymentStatusUpdate,
+      handlePaymentConfirmation,
+      handlePaymentFailed,
+      handleRefundProcessed,
+      handleEscrowReleased
+    };
+  }, [addNotification, handlePaymentStatusUpdate, handlePaymentConfirmation, handlePaymentFailed, handleRefundProcessed, handleEscrowReleased]);
 
   const removeNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));

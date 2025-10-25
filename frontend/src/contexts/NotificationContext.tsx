@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import Toast, { ToastProps } from '../components/Toast';
+import Toast from '../components/Toast';
 
 interface NotificationContextType {
   showNotification: (message: string, type: 'success' | 'error' | 'warning' | 'info', duration?: number) => void;

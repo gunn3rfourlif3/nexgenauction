@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { History, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { apiEndpoints } from '../../services/api';
 import { toast } from 'react-hot-toast';
 
@@ -30,7 +30,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ refreshTrigger 
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const fetchTransactions = async (page = 1) => {
+  const fetchTransactions = useCallback(async (page = 1) => {
     setLoading(true);
     try {
       const params: any = { page, limit: 10 };
@@ -43,7 +43,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ refreshTrigger 
         setTotalPages(response.data.data.pagination.totalPages);
         setCurrentPage(response.data.data.pagination.currentPage);
       } else {
-        toast.error('Failed to fetch transactions');
+        toast.error('Failed to load transactions');
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -51,11 +51,11 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ refreshTrigger 
     } finally {
       setLoading(false);
     }
-  };
+  }, [typeFilter, statusFilter]);
 
   useEffect(() => {
     fetchTransactions(1);
-  }, [typeFilter, statusFilter, refreshTrigger]);
+  }, [typeFilter, statusFilter, refreshTrigger, fetchTransactions]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

@@ -1,31 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useNotification } from '../contexts/NotificationContext';
+import { Link } from 'react-router-dom';
+
+
 import { apiEndpoints } from '../services/api';
 
 const Home: React.FC = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { showNotification } = useNotification();
+  // Removed unused navigate, user, and showNotification to satisfy lint rules.
   const [apiStatus, setApiStatus] = useState<any>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [showApiDetails, setShowApiDetails] = useState(false);
   const [isCheckingApi, setIsCheckingApi] = useState(false);
   const [featuredAuctions, setFeaturedAuctions] = useState<any[]>([]);
 
-  // Handle place bid for sample auctions
-  const handlePlaceBid = (auctionId: number) => {
-    if (!user) {
-      showNotification('Please log in to place a bid', 'error');
-      navigate('/login');
-      return;
-    }
 
-    // For sample auctions, redirect to auctions page
-    showNotification('This is a sample auction. Browse real auctions below!', 'info');
-    navigate('/auctions');
-  };
 
   useEffect(() => {
     const checkApiStatus = async () => {

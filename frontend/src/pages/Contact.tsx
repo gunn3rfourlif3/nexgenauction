@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const Contact: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -224,12 +225,12 @@ const Contact: React.FC = () => {
                 </div>
 
                 <div className="mt-6">
-                  <a
-                    href="#"
+                  <Link
+                    to="/about"
                     className="text-primary-600 hover:text-primary-700 font-medium"
                   >
                     View all FAQs →
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
