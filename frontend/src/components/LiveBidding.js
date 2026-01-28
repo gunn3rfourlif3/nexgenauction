@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Zap, Clock, DollarSign, Gavel, User, Cpu } from 'lucide-react';
+import RegistrationBadge from './RegistrationBadge';
 import { useParams, useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import api, { apiEndpoints } from '../services/api';
-import './LiveBidding.css';
+import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+// Styling aligned with AuctionDetail via Tailwind utility classes
 
 const LiveBidding = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   
   const [auction, setAuction] = useState(null);
   const [currentBid, setCurrentBid] = useState(null);
@@ -26,6 +32,10 @@ const LiveBidding = () => {
   const [pendingAutoBidAmount, setPendingAutoBidAmount] = useState(null);
   const [auctionStatus, setAuctionStatus] = useState('active'); // active, ending_soon, ended
   const [urgencyLevel, setUrgencyLevel] = useState('normal'); // normal, warning, critical
+  const [registration, setRegistration] = useState(null);
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [commissionRate, setCommissionRate] = useState(0.10);
+  const [vatRate, setVatRate] = useState(0.15);
 
   // Calculate minimum bid increment
   const calculateMinBid = useCallback((currentAmount) => {
@@ -39,16 +49,10 @@ const LiveBidding = () => {
     return currentAmount + 250;
   }, []);
 
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
+  // Currency formatting provided by context
 
-  // Format time remaining without state updates
-  const formatTimeRemaining = (endTime) => {
+  // Format time remaining without state updates (memoized)
+  const formatTimeRemaining = useCallback((endTime) => {
     const now = new Date();
     const end = new Date(endTime);
     const diff = end - now;
@@ -66,7 +70,7 @@ const LiveBidding = () => {
     if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
     if (minutes > 0) return `${minutes}m ${seconds}s`;
     return `${seconds}s`;
-  };
+  }, []);
 
   // Update auction status and urgency based on time remaining
   const updateAuctionStatus = useCallback((endTime) => {
@@ -93,10 +97,11 @@ const LiveBidding = () => {
   const loadAuctionData = useCallback(async () => {
     try {
       setLoading(true);
-      const [auctionResponse, currentBidRes, historyRes] = await Promise.all([
+      const [auctionResponse, currentBidRes, historyRes, regRes] = await Promise.all([
         apiEndpoints.auctions.getById(id),
         apiEndpoints.bids.getCurrent(id).then(res => res.data).catch(() => ({ success: false })),
-        apiEndpoints.bids.getHistory(id).then(res => res.data).catch(() => ({ success: false }))
+        apiEndpoints.bids.getHistory(id).then(res => res.data).catch(() => ({ success: false })),
+        apiEndpoints.auctions.getMyRegistration(id).then(res => res.data).catch(() => ({ success: false }))
       ]);
 
       const auctionData = (auctionResponse.data && auctionResponse.data.data && auctionResponse.data.data.auction)
@@ -106,6 +111,8 @@ const LiveBidding = () => {
           : auctionResponse.data;
 
       setAuction(auctionData);
+      const regData = regRes && regRes.success ? (regRes.data || null) : null;
+      setRegistration(regData);
 
       const currentBidData = currentBidRes && currentBidRes.success ? (currentBidRes.data?.currentBid || null) : null;
       setCurrentBid(currentBidData);
@@ -147,7 +154,7 @@ const LiveBidding = () => {
     } catch (e) {
       // no-op, UI will rely on websocket or prior state
     }
-  }, [id, auction?.startingPrice, calculateMinBid]);
+  }, [id, auction?.currentBid, auction?.startingPrice, calculateMinBid]);
 
   // Handle new bid from WebSocket
   const handleNewBid = useCallback((bidData) => {
@@ -181,13 +188,23 @@ const LiveBidding = () => {
     } catch (e) {
       // no-op
     }
-  }, [updateAuctionStatus, calculateMinBid]);
+  }, [updateAuctionStatus, calculateMinBid, formatTimeRemaining]);
 
   // Handle outbid notification
   const handleOutbid = useCallback((data) => {
-    setError(`You've been outbid! Current bid: ${formatCurrency(data.currentBid)}`);
-    setTimeout(() => setError(''), 5000);
-  }, []);
+    try {
+      const previousId = data && data.previousHighestBidderId ? String(data.previousHighestBidderId) : null;
+      const currentUserId = user && (user._id || user.id) ? String(user._id || user.id) : null;
+
+      if (previousId && currentUserId && previousId === currentUserId) {
+        setError(`You've been outbid! Current bid: ${formatCurrency(data.currentBid)}`);
+        setTimeout(() => setError(''), 5000);
+      }
+      // If the event isn't for the current user, ignore it silently
+    } catch (e) {
+      // no-op
+    }
+  }, [formatCurrency, user]);
 
   // Handle bid error
   const handleBidError = useCallback((errorData) => {
@@ -326,6 +343,18 @@ const LiveBidding = () => {
     showAutoBidConfirmationDialog();
   };
 
+  // Load fees settings once
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: res } = await api.get('/settings/fees');
+        const f = res?.data?.fees;
+        if (f && typeof f.commissionRate === 'number') setCommissionRate(f.commissionRate);
+        if (f && typeof f.vatRate === 'number') setVatRate(f.vatRate);
+      } catch {}
+    })();
+  }, []);
+
   // Initialize WebSocket connection and load data
   useEffect(() => {
     const initializeConnection = async () => {
@@ -367,7 +396,7 @@ const LiveBidding = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [auction?.endTime, updateAuctionStatus]);
+  }, [auction?.endTime, updateAuctionStatus, formatTimeRemaining]);
 
   // Monitor WebSocket connection
   useEffect(() => {
@@ -380,80 +409,117 @@ const LiveBidding = () => {
 
   if (loading) {
     return (
-      <div className="live-bidding-container">
-        <div className="loading">Loading auction...</div>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="text-gray-600">Loading auction...</div>
       </div>
     );
   }
 
   if (!auction) {
     return (
-      <div className="live-bidding-container">
-        <div className="error">Auction not found</div>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="text-red-700 bg-red-50 rounded-md p-4">Auction not found</div>
       </div>
     );
   }
 
   const isAuctionActive = new Date(auction.endTime) > new Date();
   const minBid = calculateMinBid(currentBid?.amount ?? auction.currentBid ?? auction.startingPrice);
+  
+  const bidPreview = parseFloat(bidAmount) || minBid;
+  const estCommission = (bidPreview || 0) * commissionRate;
+  const estVatOnCommission = estCommission * vatRate;
+  const estTotal = (bidPreview || 0) + estCommission + estVatOnCommission;
+  const regStatus = registration?.status || 'not_registered';
+  const canBidByReg = regStatus === 'approved' || regStatus === 'deposit_received';
 
   return (
-    <div className="live-bidding-container">
-      <div className="auction-header">
-        <button onClick={() => navigate(-1)} className="back-button">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+        >
           ← Back
         </button>
-        <div className="connection-status">
-          <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-            {isConnected ? '● Live' : '● Disconnected'}
+        <div>
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-2 ${
+              isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}
+          >
+            {isConnected ? (
+              <>
+                <span className="relative flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-green-600"></span>
+                </span>
+                <Zap size={16} className="text-black" />
+                Live
+              </>
+            ) : (
+              <>
+                <span className="h-4 w-4 rounded-full bg-black"></span>
+                Disconnected
+              </>
+            )}
           </span>
         </div>
       </div>
 
-      <div className="auction-info">
-        <h1>{auction.title}</h1>
-        <div className="auction-details">
-          <div className="detail-item">
-            <span className="label">Current Bid:</span>
-            <span className="current-bid">
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h1 className="text-2xl font-bold mb-4">{auction.title}</h1>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <span className="text-sm text-gray-600 flex items-center gap-1"><DollarSign size={16} className="text-gray-500" /> Current Bid:</span>
+            <span className="text-xl font-semibold text-gray-800">
               {currentBid ? formatCurrency(currentBid.amount) : formatCurrency(auction.currentBid ?? auction.startingPrice)}
             </span>
           </div>
-          <div className="detail-item">
-            <span className="label">Time Remaining:</span>
-            <div className="time-remaining-container">
-              <span className={`time-remaining ${auctionStatus} ${urgencyLevel}`}>
+          <div className="space-y-1">
+            <span className="text-sm text-gray-600 flex items-center gap-1"><Clock size={16} className="text-gray-500" /> Time Remaining:</span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-base font-medium ${
+                  auctionStatus === 'ending_soon'
+                    ? 'text-black'
+                    : auctionStatus === 'ended'
+                      ? 'text-gray-700'
+                      : 'text-gray-800'
+                }`}
+              >
                 {timeRemaining || formatTimeRemaining(auction.endTime)}
               </span>
               {auctionStatus === 'ending_soon' && (
-                <div className="auction-status-indicator">
-                  <span className={`status-badge ${urgencyLevel}`}>
-                    {urgencyLevel === 'critical' ? '🔥 ENDING SOON!' : '⚠️ Ending Soon'}
-                  </span>
-                </div>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-black`}
+                >
+                  {urgencyLevel === 'critical' ? 'Ending Soon' : 'Ending Soon'}
+                </span>
               )}
               {auctionStatus === 'ended' && (
-                <div className="auction-status-indicator">
-                  <span className="status-badge ended">🏁 AUCTION ENDED</span>
-                </div>
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-black">Auction Ended</span>
               )}
             </div>
           </div>
-          <div className="detail-item">
-            <span className="label">Starting Price:</span>
-            <span>{formatCurrency(auction.startingPrice)}</span>
+          <div className="space-y-1">
+            <span className="text-sm text-gray-600 flex items-center gap-1"><DollarSign size={16} className="text-gray-500" /> Starting Price:</span>
+            <span className="text-base font-medium text-gray-800">{formatCurrency(auction.startingPrice)}</span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-sm text-gray-600 flex items-center gap-1">Registration:</span>
+            <div><RegistrationBadge status={regStatus} /></div>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="error-message">
-          <div className="error-icon">⚠️</div>
-          <div className="error-content">
-            <strong>Error:</strong> {error}
+        <div className="mb-4 rounded-md bg-red-50 p-4 flex items-start justify-between">
+          <div className="flex items-center gap-2 text-red-700">
+            <span className="font-semibold">Error:</span> {error}
           </div>
-          <button 
-            className="error-dismiss" 
+          <button
+            className="text-red-600 hover:text-red-800"
             onClick={() => setError('')}
             aria-label="Dismiss error"
           >
@@ -463,13 +529,12 @@ const LiveBidding = () => {
       )}
       
       {success && (
-        <div className="success-message">
-          <div className="success-icon">✅</div>
-          <div className="success-content">
-            <strong>Success:</strong> {success}
+        <div className="mb-4 rounded-md bg-green-50 p-4 flex items-start justify-between">
+          <div className="flex items-center gap-2 text-green-700">
+            <span className="font-semibold">Success:</span> {success}
           </div>
-          <button 
-            className="success-dismiss" 
+          <button
+            className="text-green-600 hover:text-green-800"
             onClick={() => setSuccess('')}
             aria-label="Dismiss success message"
           >
@@ -479,10 +544,11 @@ const LiveBidding = () => {
       )}
 
       {isAuctionActive && (
-        <div className="bidding-section">
-          <div className="manual-bid">
-            <h3>Place Bid</h3>
-            <div className="bid-input-group">
+        <div className="bg-gray-50 rounded-lg p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><Gavel size={18} className="text-blue-600" /> Place Bid</h3>
+              <div className="flex gap-2">
               <input
                 type="number"
                 value={bidAmount}
@@ -490,21 +556,65 @@ const LiveBidding = () => {
                 placeholder={`Minimum: ${formatCurrency(minBid)}`}
                 min={minBid}
                 step="1"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={placeBid}
-                disabled={bidding || !bidAmount}
-                className="bid-button"
+                disabled={bidding || !bidAmount || !canBidByReg}
+                className="px-6 py-2 bg-black text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {bidding ? 'Placing...' : 'Place Bid'}
+                <span className="flex items-center gap-2"><Gavel size={16} /> {bidding ? 'Placing...' : 'Place Bid'}</span>
               </button>
+              {!canBidByReg && (
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="text-xs text-gray-600">You must be approved to bid on this auction.</p>
+                  {user ? (
+                    <button
+                      onClick={async () => {
+                        try {
+                          setRegisterLoading(true);
+                          const res = await apiEndpoints.auctions.register(id);
+                          if (res.data?.success) {
+                            const r = await apiEndpoints.auctions.getMyRegistration(id);
+                            setRegistration(r.data?.data || null);
+                            setSuccess('Registration submitted successfully');
+                            setTimeout(() => setSuccess(''), 3000);
+                          }
+                        } catch (e) {
+                          setError(e?.response?.data?.message || 'Failed to register for this auction');
+                          setTimeout(() => setError(''), 5000);
+                        } finally {
+                          setRegisterLoading(false);
+                        }
+                      }}
+                      disabled={registerLoading}
+                      className={`px-3 py-1 rounded-md text-xs font-semibold ${registerLoading ? 'bg-gray-200 text-gray-700 cursor-not-allowed' : 'bg-black text-white hover:bg-gray-900'}`}
+                    >
+                      {registerLoading ? 'Registering…' : 'Register Now'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="px-3 py-1 bg-black text-white rounded-md hover:bg-gray-900 text-xs"
+                    >
+                      Register / Login
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <p className="bid-info">Minimum bid: {formatCurrency(minBid)}</p>
-          </div>
+              <p className="text-sm text-gray-600 mt-2">Minimum bid: {formatCurrency(minBid)}</p>
+              <div className="text-sm text-gray-800 mt-2">
+                <div className="flex justify-between"><span>Your Bid</span><span>{formatCurrency(bidPreview)}</span></div>
+                <div className="flex justify-between"><span>Buyer’s Commission (10%)</span><span>{formatCurrency(estCommission)}</span></div>
+                <div className="flex justify-between"><span>VAT on Commission (15%)</span><span>{formatCurrency(estVatOnCommission)}</span></div>
+                <div className="flex justify-between font-semibold border-t pt-1"><span>Total (excl. STC)</span><span>{formatCurrency(estTotal)}</span></div>
+              </div>
+            </div>
 
-          <div className="auto-bid">
-            <h3>Auto Bid (Proxy Bidding)</h3>
-            <div className="auto-bid-input-group">
+            <div>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><Zap size={18} className="text-blue-600" /> Auto Bid (Proxy Bidding)</h3>
+            <div className="flex gap-2">
               <input
                 type="number"
                 value={autoBidMax}
@@ -513,67 +623,78 @@ const LiveBidding = () => {
                 min={minBid}
                 step="1"
                 disabled={isAutoBidEnabled}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <button
                 onClick={setAutoBid}
-                disabled={!autoBidMax || isAutoBidEnabled}
-                className="auto-bid-button"
+                disabled={!autoBidMax || isAutoBidEnabled || !canBidByReg}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {isAutoBidEnabled ? 'Auto Bid Active' : 'Set Auto Bid'}
+                <span className="flex items-center gap-2"><Zap size={16} /> {isAutoBidEnabled ? 'Auto Bid Active' : 'Set Auto Bid'}</span>
               </button>
+              {!canBidByReg && (
+                <p className="text-xs text-gray-600 mt-2">Approval required to set auto-bid.</p>
+              )}
             </div>
-            <p className="auto-bid-info">
+            <p className="text-sm text-gray-600 mt-2">
               {isAutoBidEnabled 
                 ? `Auto bidding up to ${formatCurrency(parseFloat(autoBidMax))}`
-                : 'Set a maximum amount and we\'ll bid for you automatically'
-              }
+                : 'Set a maximum amount and we\'ll bid for you automatically'}
             </p>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="bid-history">
-        <h3>Bid History</h3>
-        <div className="bid-list">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gavel size={18} className="text-black" /> Bid History</h3>
+        <div className="divide-y max-h-[500px] overflow-y-auto pr-1">
           {bidHistory.length > 0 ? (
             bidHistory.map((bid, index) => (
-              <div key={bid._id || index} className="bid-item">
-                <div className="bid-amount">{formatCurrency(bid.amount)}</div>
-                <div className="bid-details">
-                  <span className="bid-type">{bid.bidType === 'auto' ? 'Auto Bid' : 'Manual Bid'}</span>
-                  <span className="bid-time">
-                    {new Date(bid.bidTime).toLocaleString()}
+              <div key={bid._id || index} className="py-3 flex items-center justify-between">
+                <div className="text-base font-medium text-gray-800">{formatCurrency(bid.amount)}</div>
+                <div className="text-sm text-gray-600 flex items-center gap-3">
+                  <span className="flex items-center gap-1">
+                    {bid.bidType === 'auto' ? (
+                      <Cpu size={14} className="text-black" />
+                    ) : (
+                      <User size={14} className="text-gray-600" />
+                    )}
+                    {bid.bidType === 'auto' ? 'Auto Bid' : 'Manual Bid'}
                   </span>
+                  <span className="text-gray-500">{new Date(bid.bidTime).toLocaleString()}</span>
                 </div>
               </div>
             ))
           ) : (
-            <div className="no-bids">No bids yet</div>
+            <div className="text-gray-500 text-sm">No bids yet</div>
           )}
         </div>
       </div>
 
       {/* Bid Confirmation Dialog */}
       {showBidConfirmation && (
-        <div className="confirmation-overlay">
-          <div className="confirmation-dialog">
-            <div className="confirmation-header">
-              <h3>Confirm Bid</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow p-6 w-full max-w-md">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2"><Gavel size={18} className="text-black" /> Confirm Bid</h3>
             </div>
-            <div className="confirmation-content">
-              <p>Are you sure you want to place a bid of <strong>{formatCurrency(pendingBidAmount)}</strong>?</p>
-              <p className="confirmation-note">This action cannot be undone.</p>
+            <div className="space-y-2">
+              <p>
+                Are you sure you want to place a bid of <strong>{formatCurrency(pendingBidAmount)}</strong>?
+              </p>
+              <p className="text-sm text-gray-600">This action cannot be undone.</p>
             </div>
-            <div className="confirmation-actions">
-              <button 
-                className="confirm-button"
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 onClick={confirmBid}
                 disabled={bidding}
               >
                 {bidding ? 'Placing Bid...' : 'Confirm Bid'}
               </button>
-              <button 
-                className="cancel-button"
+              <button
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 onClick={() => {
                   setShowBidConfirmation(false);
                   setPendingBidAmount(null);
@@ -589,24 +710,26 @@ const LiveBidding = () => {
 
       {/* Auto Bid Confirmation Dialog */}
       {showAutoBidConfirmation && (
-        <div className="confirmation-overlay">
-          <div className="confirmation-dialog">
-            <div className="confirmation-header">
-              <h3>Confirm Auto Bid</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow p-6 w-full max-w-md">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2"><Zap size={18} className="text-black" /> Confirm Auto Bid</h3>
             </div>
-            <div className="confirmation-content">
-              <p>Set auto bid maximum to <strong>{formatCurrency(pendingAutoBidAmount)}</strong>?</p>
-              <p className="confirmation-note">The system will automatically bid for you up to this amount.</p>
+            <div className="space-y-2">
+              <p>
+                Set auto bid maximum to <strong>{formatCurrency(pendingAutoBidAmount)}</strong>?
+              </p>
+              <p className="text-sm text-gray-600">The system will automatically bid for you up to this amount.</p>
             </div>
-            <div className="confirmation-actions">
-              <button 
-                className="confirm-button"
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 onClick={confirmAutoBid}
               >
                 Confirm Auto Bid
               </button>
-              <button 
-                className="cancel-button"
+              <button
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                 onClick={() => {
                   setShowAutoBidConfirmation(false);
                   setPendingAutoBidAmount(null);

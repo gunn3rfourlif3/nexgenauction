@@ -12,11 +12,14 @@ import {
   Clock,
   Award,
   Shield,
-  Plus
+  Plus,
+  Wallet
 } from 'lucide-react';
 import api, { apiEndpoints } from '../services/api';
+import { useCurrency } from '../contexts/CurrencyContext';
 import ConfirmationModal from '../components/ConfirmationModal';
 import DuplicateAuctionModal from '../components/DuplicateAuctionModal';
+import AccountSection from '../components/Account/AccountSection';
 
 interface DashboardStats {
   totalAuctions: number;
@@ -42,7 +45,7 @@ interface Auction {
   currentBid: number;
   startTime: string;
   endTime: string;
-  status: 'scheduled' | 'active' | 'ended' | 'paused';
+  status: 'upcoming' | 'active' | 'ended' | 'paused' | 'cancelled';
   seller: {
     _id: string;
     username: string;
@@ -85,6 +88,12 @@ const Dashboard: React.FC = () => {
     auction: Auction | null;
   }>({ isOpen: false, auction: null });
 
+  const [cancelModal, setCancelModal] = useState<{
+    isOpen: boolean;
+    auction: Auction | null;
+  }>({ isOpen: false, auction: null });
+  const [cancelReasonInput, setCancelReasonInput] = useState<string>('');
+
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -99,15 +108,20 @@ const Dashboard: React.FC = () => {
       const userBids = bidsResponse.data.data.auctions;
       setMyBids(userBids);
 
-      // Fetch watchlist (assuming we have this endpoint)
+      // Fetch watchlist via dedicated endpoint
       let userWatchlist: Auction[] = [];
+      let watchlistTotalItems = 0;
       try {
-        const watchlistResponse = await apiEndpoints.auctions.getAll({ watchedBy: user?._id });
-        userWatchlist = watchlistResponse.data.data.auctions || [];
+        const watchlistResponse = await apiEndpoints.auctions.getUserWatchlist({ page: 1, limit: 12 });
+        const data = watchlistResponse.data?.data || watchlistResponse.data || {};
+        userWatchlist = data.auctions || [];
+        const pagination = data.pagination || {};
+        watchlistTotalItems = Number(pagination.totalItems || userWatchlist.length || 0);
         setWatchlist(userWatchlist);
       } catch (error) {
         console.log('Watchlist fetch failed, using empty array');
         userWatchlist = [];
+        watchlistTotalItems = 0;
         setWatchlist([]);
       }
 
@@ -129,7 +143,7 @@ const Dashboard: React.FC = () => {
         totalAuctions: userAuctions.length,
         activeAuctions,
         totalBids: totalUserBids,
-        watchlistCount: userWatchlist.length,
+        watchlistCount: watchlistTotalItems,
         wonAuctions,
         totalEarnings
       });
@@ -197,12 +211,7 @@ const Dashboard: React.FC = () => {
     };
   }, [activeTab, isAuthenticated, user, fetchDashboardData]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
+  const { formatCurrency } = useCurrency();
 
   const formatTimeRemaining = (endTime: string) => {
     const now = new Date();
@@ -368,7 +377,7 @@ const Dashboard: React.FC = () => {
       setMyAuctions(prev => 
         prev.map(auction => 
           auction._id === auctionId 
-            ? { ...auction, status: newStatus as 'scheduled' | 'active' | 'ended' | 'paused' }
+        ? { ...auction, status: newStatus as 'upcoming' | 'active' | 'ended' | 'paused' }
             : auction
         )
       );
@@ -410,6 +419,19 @@ const Dashboard: React.FC = () => {
     return auction.status === 'active' || auction.status === 'paused';
   };
 
+  // Check if auction can be extended
+  const canExtendAuction = (auction: any) => {
+    return auction.status === 'active' || auction.status === 'paused';
+  };
+
+  // Check if auction can be cancelled
+  const canCancelAuction = (auction: any) => {
+    const hasBids = auction.bidCount && auction.bidCount > 0;
+    const isSellerActionable = auction.status === 'active' || auction.status === 'paused';
+    const isAdmin = user?.role === 'admin';
+    return isSellerActionable && (!hasBids || isAdmin);
+  };
+
   const handleCreateAuction = () => {
     if (!isAuthenticated) {
       showNotification('Please log in to create an auction', 'error');
@@ -421,10 +443,105 @@ const Dashboard: React.FC = () => {
     navigate('/create-auction');
   };
 
+  // Inline extend controls state
+  const [extendVisible, setExtendVisible] = useState<Record<string, boolean>>({});
+  const [extendMinutes, setExtendMinutes] = useState<Record<string, string>>({});
+
+  // Extend auction end time
+  const handleExtendAuction = async (auction: Auction) => {
+    if (!auction) return;
+
+    const raw = extendMinutes[auction._id];
+    const minutes = parseInt((raw ?? '').trim(), 10);
+    if (!raw || isNaN(minutes) || minutes <= 0) {
+      showNotification('Enter a valid positive number of minutes', 'error');
+      return;
+    }
+
+    setActionLoading(prev => ({ ...prev, [`extend-${auction._id}`]: true }));
+
+    try {
+      await apiEndpoints.auctions.extend(auction._id, { extensionMinutes: minutes });
+      // Hide and clear inline input on success
+      setExtendVisible(prev => ({ ...prev, [auction._id]: false }));
+      setExtendMinutes(prev => {
+        const next = { ...prev };
+        delete next[auction._id];
+        return next;
+      });
+      setMyAuctions(prev => prev.map(a => {
+        if (a._id !== auction._id) return a;
+        const currentEnd = new Date(a.endTime).getTime();
+        const updatedEnd = new Date(currentEnd + minutes * 60000).toISOString();
+        return { ...a, endTime: updatedEnd };
+      }));
+      showNotification(`Auction extended by ${minutes} minute(s)`, 'success');
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error extending auction:', err);
+      let errorMessage = 'Failed to extend auction';
+      if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to extend this auction';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Auction not found';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || 'Cannot extend auction';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      showNotification(errorMessage, 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`extend-${auction._id}`]: false }));
+    }
+  };
+
+  // Cancel auction
+  const handleCancelAuction = (auction: Auction) => {
+    setCancelModal({ isOpen: true, auction });
+    setCancelReasonInput('');
+  };
+
+  const confirmCancelAuction = async () => {
+    const auction = cancelModal.auction;
+    if (!auction) return;
+    const reason = (cancelReasonInput || '').trim();
+    if (reason && reason.length < 3) {
+      showNotification('Reason must be at least 3 characters or leave empty', 'error');
+      return;
+    }
+
+    setActionLoading(prev => ({ ...prev, [`cancel-${auction._id}`]: true }));
+
+    try {
+      const payload = reason ? { reason } : {};
+      await apiEndpoints.auctions.cancel(auction._id, payload);
+      showNotification('Auction cancelled successfully', 'success');
+      setMyAuctions(prev => prev.map(a => a._id === auction._id ? { ...a, status: 'cancelled' } : a));
+      setCancelModal({ isOpen: false, auction: null });
+      setCancelReasonInput('');
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error cancelling auction:', err);
+      let errorMessage = 'Failed to cancel auction';
+      if (err.response?.status === 403) {
+        errorMessage = 'You do not have permission to cancel this auction';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Auction not found';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || 'Cannot cancel auction';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      showNotification(errorMessage, 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`cancel-${auction._id}`]: false }));
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-black"></div>
       </div>
     );
   }
@@ -437,7 +554,7 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-600 mb-6">Please log in to access your dashboard.</p>
           <a
             href="/login"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-gray-900"
           >
             Sign In
           </a>
@@ -451,15 +568,18 @@ const Dashboard: React.FC = () => {
     { id: 'my-auctions', label: 'My Auctions', icon: Gavel },
     { id: 'my-bids', label: 'My Bids', icon: DollarSign },
     { id: 'watchlist', label: 'Watchlist', icon: Heart },
+    { id: 'history', label: 'Auction History', icon: Clock },
+    { id: 'disputes', label: 'Disputes', icon: Shield },
     { id: 'profile', label: 'Profile', icon: User },
-    ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
+    { id: 'account', label: 'Account Management', icon: Wallet },
+    ...((user?.role === 'admin' || user?.role === 'super') ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
   ];
 
-  const StatCard = ({ title, value, icon: Icon, color = 'blue' }: any) => (
+  const StatCard = ({ title, value, icon: Icon }: any) => (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center">
-        <div className={`flex-shrink-0 p-3 rounded-lg bg-${color}-100`}>
-          <Icon className={`w-6 h-6 text-${color}-600`} />
+        <div className="flex-shrink-0 p-3 rounded-lg bg-gray-100">
+          <Icon className="w-6 h-6 text-black" />
         </div>
         <div className="ml-4">
           <p className="text-sm font-medium text-gray-600">{title}</p>
@@ -493,7 +613,7 @@ const Dashboard: React.FC = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-black text-black'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -566,7 +686,7 @@ const Dashboard: React.FC = () => {
               <div className="p-6">
                 {loading ? (
                   <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -621,7 +741,7 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               {loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
                 </div>
               ) : myAuctions.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -665,15 +785,7 @@ const Dashboard: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                               auction.status === 'active' 
-                                 ? 'bg-green-100 text-green-800'
-                                 : auction.status === 'ended'
-                                 ? 'bg-red-100 text-red-800'
-                                 : auction.status === 'paused'
-                                 ? 'bg-orange-100 text-orange-800'
-                                 : 'bg-yellow-100 text-yellow-800'
-                             }`}>
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-200 text-black`}>
                               {auction.status}
                             </span>
                           </td>
@@ -691,7 +803,7 @@ const Dashboard: React.FC = () => {
                               {/* View Button */}
                               <button 
                                 onClick={() => handleViewAuction(auction._id)}
-                                className="text-blue-600 hover:text-blue-900 transition-colors"
+                                className="text-black hover:text-gray-900 transition-colors"
                                 title="View auction details"
                               >
                                 View
@@ -701,7 +813,7 @@ const Dashboard: React.FC = () => {
                               {canEditAuction(auction) ? (
                                 <button 
                                   onClick={() => handleEditAuction(auction._id)}
-                                  className="text-green-600 hover:text-green-900 transition-colors"
+                                  className="text-black hover:text-gray-900 transition-colors"
                                   title="Edit auction"
                                 >
                                   Edit
@@ -732,6 +844,65 @@ const Dashboard: React.FC = () => {
                                     : (auction.status === 'active' ? 'Pause' : 'Resume')
                                   }
                                 </button>
+                              )}
+
+                              {/* Extend Button */}
+                              {canExtendAuction(auction) ? (
+                                <button
+                                  onClick={() => setExtendVisible(prev => ({ ...prev, [auction._id]: !prev[auction._id] }))}
+                                  disabled={actionLoading[`extend-${auction._id}`]}
+                                  className="text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Extend auction end time"
+                                >
+                                  {actionLoading[`extend-${auction._id}`] ? 'Extending...' : 'Extend'}
+                                </button>
+                              ) : (
+                                <span
+                                  className="text-gray-400 cursor-not-allowed"
+                                  title={auction.status === 'ended' ? 'Cannot extend ended auctions' : 'Cannot extend cancelled auctions'}
+                                >
+                                  Extend
+                                </span>
+                              )}
+
+                              {/* Inline Extend Controls */}
+                              {extendVisible[auction._id] && (
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={extendMinutes[auction._id] ?? ''}
+                                    onChange={(e) => setExtendMinutes(prev => ({ ...prev, [auction._id]: e.target.value }))}
+                                    placeholder="Minutes"
+                                    className="w-20 px-2 py-1 border rounded"
+                                  />
+                                  <button
+                                    onClick={() => handleExtendAuction(auction)}
+                                    disabled={actionLoading[`extend-${auction._id}`]}
+                                    className="text-blue-600 hover:text-blue-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Confirm
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Cancel Button */}
+                              {canCancelAuction(auction) ? (
+                                <button
+                                  onClick={() => handleCancelAuction(auction)}
+                                  disabled={actionLoading[`cancel-${auction._id}`]}
+                                  className="text-red-600 hover:text-red-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Cancel auction"
+                                >
+                                  {actionLoading[`cancel-${auction._id}`] ? 'Cancelling...' : 'Cancel'}
+                                </button>
+                              ) : (
+                                <span
+                                  className="text-gray-400 cursor-not-allowed"
+                                  title={auction.bidCount > 0 ? 'Cannot cancel auctions with bids (unless admin)' : 'Cannot cancel this auction'}
+                                >
+                                  Cancel
+                                </span>
                               )}
                               
                               {/* Duplicate Button */}
@@ -779,6 +950,95 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Auction History Tab */}
+        {activeTab === 'history' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Auction History</h3>
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const res = await apiEndpoints.auctions.getUserHistory({ page: 1, limit: 20 });
+                    const data = res.data?.data || res.data || {};
+                    const endedAuctions = data.auctions || [];
+                    setMyAuctions(endedAuctions);
+                  } catch (e) {
+                    showNotification('Failed to load auction history', 'error');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60"
+                disabled={loading}
+              >
+                {loading ? 'Loading…' : 'Refresh'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myAuctions.length === 0 && !loading && (
+                <p className="text-gray-500">No ended auctions found.</p>
+              )}
+              {myAuctions.map((auction) => (
+                <div key={auction._id} className="bg-white rounded-lg shadow p-4">
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={auction.images?.find(img => img.isPrimary)?.url || '/placeholder-image.jpg'}
+                      alt={auction.title}
+                      className="w-16 h-16 rounded object-cover"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">{auction.title}</p>
+                      <p className="text-sm text-gray-600">Final bid: {formatCurrency(auction.currentBid)}</p>
+                      <p className="text-xs text-gray-500">Ended: {new Date(auction.endTime).toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Disputes Tab */}
+        {activeTab === 'disputes' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-medium text-gray-900">Payment Disputes</h3>
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const res = await apiEndpoints.payments.getHistory({ page: 1, limit: 20, status: 'disputed' });
+                    const data = res.data?.data || res.data || {};
+                    const payments = data.payments || [];
+                    // Store in actionLoading map temporarily for display; ideally add dedicated state
+                    setActionLoading(prev => ({ ...prev, _disputes_count: payments.length }));
+                  } catch (e) {
+                    showNotification('Failed to load disputes', 'error');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60"
+                disabled={loading}
+              >
+                {loading ? 'Loading…' : 'Refresh'}
+              </button>
+            </div>
+
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h4 className="text-lg font-medium text-gray-900">Your open disputes</h4>
+                <p className="text-sm text-gray-500">Count: {actionLoading._disputes_count || 0}</p>
+              </div>
+              <div className="p-6">
+                <p className="text-gray-600">Dispute list and actions will appear here.</p>
+              </div>
             </div>
           </div>
         )}
@@ -843,10 +1103,10 @@ const Dashboard: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               bid.winner?._id === user?._id
-                                ? 'bg-green-100 text-green-800'
+                                ? 'bg-black text-white'
                                 : bid.status === 'active'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-gray-100 text-gray-800'
+                                ? 'bg-gray-900 text-white'
+                                : 'bg-gray-200 text-black'
                             }`}>
                               {bid.winner?._id === user?._id ? 'Won' : bid.status}
                             </span>
@@ -855,7 +1115,7 @@ const Dashboard: React.FC = () => {
                             {formatTimeRemaining(bid.endTime)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button className="text-blue-600 hover:text-blue-900">
+                            <button className="text-black hover:text-gray-900">
                               View Auction
                             </button>
                           </td>
@@ -871,7 +1131,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-gray-500 mb-6">Start bidding on auctions that interest you.</p>
                   <a
                     href="/auctions"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
+                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-900 transition-colors inline-block"
                   >
                     Browse Auctions
                   </a>
@@ -889,7 +1149,7 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow">
               {loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
                 </div>
               ) : watchlist.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
@@ -904,7 +1164,7 @@ const Dashboard: React.FC = () => {
                         <h4 className="font-medium text-gray-900 mb-2">{auction.title}</h4>
                         <p className="text-sm text-gray-500 mb-2">{auction.category}</p>
                         <div className="flex justify-between items-center mb-3">
-                          <span className="text-lg font-bold text-green-600">
+                          <span className="text-lg font-bold text-black">
                             {formatCurrency(auction.currentBid)}
                           </span>
                           <span className="text-sm text-gray-500">
@@ -917,7 +1177,7 @@ const Dashboard: React.FC = () => {
                           </span>
                           <button
                             onClick={() => navigate(`/auctions/${auction._id}`)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            className="text-black hover:text-gray-900 text-sm font-medium"
                           >
                             View Details
                           </button>
@@ -933,7 +1193,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-gray-500 mb-6">Add auctions to your watchlist to keep track of them.</p>
                   <a
                     href="/auctions"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block"
+                    className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-900 transition-colors inline-block"
                   >
                     Browse Auctions
                   </a>
@@ -1024,12 +1284,27 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Admin Panel Tab */}
-        {activeTab === 'admin' && user?.role === 'admin' && (
+        {/* Account Tab */}
+        {activeTab === 'account' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Shield className="w-6 h-6 text-blue-600" />
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Wallet className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-900">Account Management</h3>
+              </div>
+              <AccountSection />
+            </div>
+          </div>
+        )}
+
+        {/* Admin Panel Tab */}
+        {activeTab === 'admin' && (user?.role === 'admin' || user?.role === 'super') && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <Shield className="w-6 h-6 text-black" />
                 <h3 className="text-xl font-medium text-gray-900">Admin Panel</h3>
               </div>
               
@@ -1037,8 +1312,8 @@ const Dashboard: React.FC = () => {
                 {/* Create Auction Card */}
                 <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Plus className="w-5 h-5 text-green-600" />
+                    <div className="p-2 bg-gray-200 rounded-lg">
+                      <Plus className="w-5 h-5 text-black" />
                     </div>
                     <h4 className="font-medium text-gray-900">Create Auction</h4>
                   </div>
@@ -1077,21 +1352,21 @@ const Dashboard: React.FC = () => {
                 {/* User Management Card */}
                 <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <User className="w-5 h-5 text-purple-600" />
+                    <div className="p-2 bg-gray-200 rounded-lg">
+                      <User className="w-5 h-5 text-black" />
                     </div>
                     <h4 className="font-medium text-gray-900">User Management</h4>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">
                     Manage user accounts, roles, and permissions.
                   </p>
-                  <button
+                  <a
+                    href="/admin/users"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm"
-                    disabled
                   >
                     <User className="w-4 h-4" />
-                    Coming Soon
-                  </button>
+                    Manage Users
+                  </a>
                 </div>
 
                 {/* System Stats Card */}
@@ -1114,7 +1389,7 @@ const Dashboard: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Settings Card */}
+                {/* System Settings Card */}
                 <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-gray-100 rounded-lg">
@@ -1125,13 +1400,13 @@ const Dashboard: React.FC = () => {
                   <p className="text-sm text-gray-600 mb-4">
                     Configure platform settings and preferences.
                   </p>
-                  <button
+                  <a
+                    href="/admin/system"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
-                    disabled
                   >
                     <Settings className="w-4 h-4" />
-                    Coming Soon
-                  </button>
+                    Open System Settings
+                  </a>
                 </div>
 
                 {/* Reports Card */}
@@ -1159,7 +1434,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Placeholder content for other tabs */}
-        {activeTab !== 'overview' && activeTab !== 'profile' && activeTab !== 'admin' && (
+        {activeTab !== 'overview' && activeTab !== 'profile' && activeTab !== 'admin' && activeTab !== 'account' && (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <h3 className="text-xl font-medium text-gray-900 mb-4">
               {tabs.find(tab => tab.id === activeTab)?.label}
@@ -1193,6 +1468,31 @@ const Dashboard: React.FC = () => {
         auction={duplicateModal.auction}
         loading={actionLoading[`duplicate-${duplicateModal.auction?._id}`]}
       />
+
+      {/* Cancel Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={cancelModal.isOpen}
+        onClose={() => setCancelModal({ isOpen: false, auction: null })}
+        onConfirm={confirmCancelAuction}
+        title="Cancel Auction"
+        message={`Are you sure you want to cancel "${cancelModal.auction?.title}"? Bidders will be notified.`}
+        confirmText="Cancel Auction"
+        cancelText="Keep Auction"
+        type="danger"
+        icon="warning"
+        loading={actionLoading[`cancel-${cancelModal.auction?._id}`]}
+      >
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Optional reason</label>
+          <input
+            type="text"
+            value={cancelReasonInput}
+            onChange={(e) => setCancelReasonInput(e.target.value)}
+            placeholder="Reason for cancellation (optional)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+        </div>
+      </ConfirmationModal>
     </div>
   );
 };

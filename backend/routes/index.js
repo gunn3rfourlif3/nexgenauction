@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 
 // Import route modules
 const authRoutes = require('./auth');
@@ -10,6 +11,10 @@ const bidRoutes = require('./bids');
 const paymentRoutes = require('./payments');
 const currencyRoutes = require('./currencies');
 const accountRoutes = require('./account');
+const placeholderRoutes = require('./placeholder');
+const settingsRoutes = require('./settings');
+const depositsRoutes = require('./deposits');
+const assistantRoutes = require('./assistant');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -23,6 +28,10 @@ router.get('/health', (req, res) => {
 
 // API status endpoint
 router.get('/status', (req, res) => {
+  const conn = mongoose && mongoose.connection;
+  const readyState = conn && typeof conn.readyState === 'number' ? conn.readyState : -1;
+  const isConnected = readyState === 1;
+  const host = (conn && conn.host) || (conn && conn.client && conn.client.s && conn.client.s.url) || undefined;
   res.json({
     success: true,
     data: {
@@ -31,6 +40,11 @@ router.get('/status', (req, res) => {
       environment: process.env.NODE_ENV || 'development',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
+      db: {
+        isConnected,
+        readyState,
+        host: host
+      },
       endpoints: {
         auth: '/api/auth',
         oauth: '/api/auth/oauth',
@@ -39,7 +53,10 @@ router.get('/status', (req, res) => {
         bids: '/api/bids',
         payments: '/api/payments',
         currencies: '/api/currencies',
-        account: '/api/account'
+        account: '/api/account',
+        placeholder: '/api/placeholder/:w/:h',
+        settings: '/api/settings/hero',
+        assistant: '/api/assistant'
       }
     }
   });
@@ -54,6 +71,10 @@ router.use('/bids', bidRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/currencies', currencyRoutes);
 router.use('/account', accountRoutes);
+router.use('/placeholder', placeholderRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/deposits', depositsRoutes);
+router.use('/assistant', assistantRoutes);
 
 // 404 handler for API routes
 router.use((req, res) => {
