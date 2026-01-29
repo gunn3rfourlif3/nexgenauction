@@ -17,23 +17,31 @@ import AuthCallback from './pages/AuthCallback';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import LiveBidding from './components/LiveBidding';
-import AdminCreateAuction from './pages/AdminCreateAuction';
+import AdminSystemSettings from './pages/AdminSystemSettings';
+import Support from './pages/Support';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import FAQ from './pages/FAQ';
 import CreateAuction from './pages/CreateAuction';
 import EditAuction from './pages/EditAuction';
 import CheckoutTest from './pages/CheckoutTest';
+import ChatAssistant from './components/ChatAssistant';
 
 // Import context
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { CurrencyProvider } from './contexts/CurrencyContext';
 
 function App() {
   return (
     <NotificationProvider>
       <AuthProvider>
+        <CurrencyProvider>
         <Router>
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-white text-black flex flex-col">
           <Header />
           <main className="flex-grow">
+            <ChatAssistant />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auctions" element={<AuctionCatalog />} />
@@ -48,15 +56,20 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/create-auction" element={<CreateAuction />} />
-              <Route path="/admin/create-auction" element={<AdminCreateAuction />} />
+              <Route path="/admin/system" element={<AdminSystemSettings />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/faq" element={<FAQ />} />
               <Route path="/checkout-test" element={<CheckoutTest />} />
             </Routes>
           </main>
           <Footer />
         </div>
       </Router>
+        </CurrencyProvider>
     </AuthProvider>
   </NotificationProvider>
   );

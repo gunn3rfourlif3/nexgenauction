@@ -33,7 +33,7 @@ interface DuplicateAuctionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (duplicateData: any) => void;
-  auction: Auction | null;
+  auction: any | null;
   loading?: boolean;
 }
 

@@ -96,3 +96,10 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+ 
+# Local dev certificates and artifacts
+tools/certs/
+*.pfx
+*.crt
+*.key
+frontend_build/

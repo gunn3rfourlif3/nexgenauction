@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import './PaymentStatus.css';
 
 interface PaymentStatusProps {
@@ -56,19 +57,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (paymentId) {
-      loadPaymentDetails();
-      loadTransactionHistory();
-      
-      // Set up polling for status updates
-      const interval = setInterval(() => {
-        refreshPaymentStatus();
-      }, 10000); // Poll every 10 seconds
-
-      return () => clearInterval(interval);
-    }
-  }, [paymentId]);
+  // Effect moved below memoized callbacks to avoid TDZ on dependencies
 
   useEffect(() => {
     if (payment?.status && onStatusChange) {
@@ -76,7 +65,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     }
   }, [payment?.status, onStatusChange]);
 
-  const loadPaymentDetails = async () => {
+  const loadPaymentDetails = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/payments/${paymentId}`, {
@@ -98,9 +87,9 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     } finally {
       setLoading(false);
     }
-  };
+  }, [paymentId]);
 
-  const loadTransactionHistory = async () => {
+  const loadTransactionHistory = useCallback(async () => {
     try {
       const response = await fetch(`/api/payments/${paymentId}/transactions`, {
         headers: {
@@ -116,9 +105,9 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     } catch (error) {
       console.error('Failed to load transaction history:', error);
     }
-  };
+  }, [paymentId]);
 
-  const refreshPaymentStatus = async () => {
+  const refreshPaymentStatus = useCallback(async () => {
     if (refreshing) return;
     
     try {
@@ -139,7 +128,22 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [paymentId, refreshing]);
+
+  // Initialize data and polling after callbacks are declared
+  useEffect(() => {
+    if (paymentId) {
+      loadPaymentDetails();
+      loadTransactionHistory();
+      
+      // Set up polling for status updates
+      const interval = setInterval(() => {
+        refreshPaymentStatus();
+      }, 10000); // Poll every 10 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [paymentId, loadPaymentDetails, loadTransactionHistory, refreshPaymentStatus]);
 
   const handleRefund = async () => {
     if (!payment || !window.confirm('Are you sure you want to request a refund?')) {
@@ -172,6 +176,8 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     }
   };
 
+  const { formatCurrency } = useCurrency();
+
   const downloadInvoice = async () => {
     if (!payment?.invoice) return;
 
@@ -198,12 +204,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
     }
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
-  };
+  
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -302,7 +303,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
         </div>
         <div className="payment-info">
           <h2>{getStatusText(payment.status)}</h2>
-          <p className="payment-amount">{formatCurrency(payment.amount, payment.currency)}</p>
+          <p className="payment-amount">{formatCurrency(payment.amount)}</p>
           <p className="payment-date">Created: {formatDate(payment.createdAt)}</p>
           {payment.updatedAt !== payment.createdAt && (
             <p className="payment-date">Updated: {formatDate(payment.updatedAt)}</p>
@@ -361,7 +362,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
           <div className="detail-section">
             <h3>Refund Details</h3>
             <div className="refund-info">
-              <p>Amount: {formatCurrency(payment.refund.amount, payment.currency)}</p>
+              <p>Amount: {formatCurrency(payment.refund.amount)}</p>
               <p>Reason: {payment.refund.reason}</p>
               <p>Processed: {formatDate(payment.refund.processedAt)}</p>
             </div>
@@ -397,7 +398,7 @@ const PaymentStatus: React.FC<PaymentStatusProps> = ({ paymentId, auctionId, onS
                 <div className="transaction-amount">
                   <span className={`amount ${transaction.type === 'refund' ? 'negative' : 'positive'}`}>
                     {transaction.type === 'refund' ? '-' : '+'}
-                    {formatCurrency(transaction.amount, transaction.currency)}
+                    {formatCurrency(transaction.amount)}
                   </span>
                   <span className="transaction-status" style={{ color: getStatusColor(transaction.status) }}>
                     {transaction.status}

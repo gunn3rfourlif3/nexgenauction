@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, Clock, Eye, Tag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { useNotification } from '../contexts/NotificationContext';
 
 interface Auction {
@@ -60,6 +61,7 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showNotification } = useNotification();
+  const { formatCurrency } = useCurrency();
   const primaryImage = auction.images?.find(img => img.isPrimary) || auction.images?.[0];
   const timeLeft = auction.timeRemaining ? new Date(auction.timeRemaining) : null;
 
@@ -196,14 +198,14 @@ const AuctionCard: React.FC<AuctionCardProps> = ({
               <div>
                 <p className="text-sm text-gray-600">Current Bid</p>
                 <p className="text-xl font-bold text-gray-900">
-                  ${auction.currentBid.toLocaleString()}
+                  {formatCurrency(auction.currentBid)}
                 </p>
               </div>
               {auction.reservePrice && (
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Reserve</p>
                   <p className="text-sm font-medium text-gray-700">
-                    ${auction.reservePrice.toLocaleString()}
+                    {auction.reservePrice !== undefined ? formatCurrency(auction.reservePrice) : ''}
                   </p>
                 </div>
               )}
