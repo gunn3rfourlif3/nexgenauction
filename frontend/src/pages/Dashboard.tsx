@@ -572,7 +572,7 @@ const Dashboard: React.FC = () => {
     { id: 'disputes', label: 'Disputes', icon: Shield },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'account', label: 'Account Management', icon: Wallet },
-    ...((user?.role === 'admin' || user?.role === 'super') ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
+    ...((String(user?.role) === 'admin' || String(user?.role) === 'super') ? [{ id: 'admin', label: 'Admin Panel', icon: Shield }] : []),
   ];
 
   const StatCard = ({ title, value, icon: Icon }: any) => (
@@ -1300,7 +1300,7 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* Admin Panel Tab */}
-        {activeTab === 'admin' && (user?.role === 'admin' || user?.role === 'super') && (
+        {activeTab === 'admin' && (String(user?.role) === 'admin' || String(user?.role) === 'super') && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center gap-3 mb-6">

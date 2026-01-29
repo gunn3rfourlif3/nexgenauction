@@ -1,0 +1,16 @@
+RewriteEngine On
+
+# Redirect all HTTP to HTTPS
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Let API requests pass through to Node, and SPA fallback for everything else
+RewriteCond %{REQUEST_URI} !^/api/ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# Uniform Origin-Agent-Cluster header
+<IfModule mod_headers.c>
+    Header always set Origin-Agent-Cluster "?1"
+</IfModule>

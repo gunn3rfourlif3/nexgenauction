@@ -1,14 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import WatchlistNotifications from './WatchlistNotifications';
-import Logo from './Logo';
+import logo from '../logo.svg';
+import { checkApiStatus } from '../services/status';
 
 const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [apiInfo, setApiInfo] = useState<{ ok: boolean; service?: string; version?: string } | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const r = await checkApiStatus();
+      if (!mounted) return;
+      if (r.success) {
+        const d = r.data?.data;
+        setApiInfo({ ok: true, service: d?.service, version: d?.version });
+      } else {
+        setApiInfo({ ok: false });
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -25,12 +42,17 @@ const Header: React.FC = () => {
 
   return (
     <header className="bg-white text-black border-b border-black/10">
+      {apiInfo && (
+        <div className={`${apiInfo.ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-800 border-yellow-200'} border px-4 py-2 text-xs`}>
+          {apiInfo.ok ? `Connected: ${apiInfo.service || 'API'} v${apiInfo.version || ''}` : 'API not reachable — limited functionality'}
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-6">
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center" aria-label="Nexus Auction Home">
-              <Logo className="h-[2.86rem] w-auto" />
+              <img src={logo} alt="Nexus Auction" className="h-[2.86rem] w-auto" />
             </Link>
           </div>
 
@@ -116,6 +138,15 @@ const Header: React.FC = () => {
                     >
                       Dashboard
                     </Link>
+                    {(String(user?.role) === 'admin' || String(user?.role) === 'super') && (
+                      <Link
+                        to="/admin/system"
+                        className="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
+                        onClick={() => setIsDropdownOpen(false)}
+                      >
+                        Admin System Settings
+                      </Link>
+                    )}
                     
                     <Link
                       to="/profile"

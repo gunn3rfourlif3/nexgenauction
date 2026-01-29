@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 const AdminSystemSettings: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
 
-  if (!isAuthenticated || (user?.role !== 'admin' && user?.role !== 'super')) {
+  const role = String(user?.role || '');
+  if (!isAuthenticated || (role !== 'admin' && role !== 'super')) {
     return (
       <div className="max-w-5xl mx-auto p-6">
         <h1 className="text-2xl font-bold">Access Denied</h1>

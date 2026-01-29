@@ -5,7 +5,7 @@ const isDevEnv = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 // Development ports that are expected to proxy API requests
 // Exclude lightweight preview ports to force absolute backend URL
-const devPorts = new Set(['3000', '3001', '3002', '3003', '5173']);
+const devPorts = new Set(['3001', '3002', '3003', '5173']);
 const shouldUseRelativeApi = isDevEnv && devPorts.has(window.location.port || '');
 
 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
@@ -96,6 +96,10 @@ export const apiEndpoints = {
     getUserBids: () => api.get('/auctions/my/bidding'),
     addToWatchlist: (id: string) => api.post(`/auctions/${id}/watchlist`),
     removeFromWatchlist: (id: string) => api.delete(`/auctions/${id}/watchlist`),
+    getUserWatchlist: (params?: any) => api.get('/auctions/my/watchlist', { params }),
+    getUserHistory: (params?: any) => api.get('/auctions/my/history', { params }),
+    extend: (id: string, data: any) => api.put(`/auctions/${id}/extend`, data),
+    cancel: (id: string, data?: any) => api.put(`/auctions/${id}/cancel`, data),
   },
 
   // Category endpoints
@@ -127,6 +131,24 @@ export const apiEndpoints = {
     getHistory: (id: string, params?: { limit?: number; page?: number }) => 
       api.get(`/bids/${id}/history`, { params }),
     setAutoBid: (id: string, data: any) => api.post(`/bids/${id}/auto-bid`, data),
+  },
+
+  // Payments endpoints
+  payments: {
+    getHistory: (params?: any) => api.get('/payments/history', { params }),
+  },
+
+  // Settings endpoints
+  settings: {
+    currency: {
+      get: () => api.get('/settings/currency'),
+      update: (data: any) => api.put('/settings/currency', data),
+    },
+  },
+
+  // Currency metadata
+  currencies: {
+    supported: () => api.get('/currencies/supported'),
   },
 };
 

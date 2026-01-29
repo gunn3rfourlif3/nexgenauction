@@ -16,14 +16,7 @@ import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
-import AdminUsers from './pages/AdminUsers';
 import LiveBidding from './components/LiveBidding';
-import AdminCreateAuction from './pages/AdminCreateAuction';
-import AdminHeroSettings from './pages/AdminHeroSettings';
-import AdminRegistrations from './pages/AdminRegistrations';
-import AdminFeesSettings from './pages/AdminFeesSettings';
-import AdminCurrencySettings from './pages/AdminCurrencySettings';
-import AdminEndpointsStatus from './pages/AdminEndpointsStatus';
 import AdminSystemSettings from './pages/AdminSystemSettings';
 import Support from './pages/Support';
 import Terms from './pages/Terms';
@@ -32,7 +25,6 @@ import FAQ from './pages/FAQ';
 import CreateAuction from './pages/CreateAuction';
 import EditAuction from './pages/EditAuction';
 import CheckoutTest from './pages/CheckoutTest';
-import BankDetailsPage from './pages/BankDetailsPage';
 import ChatAssistant from './components/ChatAssistant';
 
 // Import context
@@ -57,7 +49,6 @@ function App() {
               <Route path="/auctions/:id/edit" element={<EditAuction />} />
               <Route path="/admin/auctions/:id/edit" element={<EditAuction />} />
               <Route path="/auctions/:id/bid" element={<LiveBidding />} />
-              <Route path="/auctions/:id/bank-details" element={<BankDetailsPage />} />
               <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
@@ -66,14 +57,7 @@ function App() {
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/profile" element={<Profile />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/create-auction" element={<CreateAuction />} />
-              <Route path="/admin/create-auction" element={<AdminCreateAuction />} />
-              <Route path="/admin/hero" element={<AdminHeroSettings />} />
-              <Route path="/admin/auctions/:id/registrations" element={<AdminRegistrations />} />
-              <Route path="/admin/fees" element={<AdminFeesSettings />} />
-              <Route path="/admin/currency" element={<AdminCurrencySettings />} />
-              <Route path="/admin/endpoints" element={<AdminEndpointsStatus />} />
               <Route path="/admin/system" element={<AdminSystemSettings />} />
               <Route path="/support" element={<Support />} />
               <Route path="/terms" element={<Terms />} />

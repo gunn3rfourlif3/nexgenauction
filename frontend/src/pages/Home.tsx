@@ -77,6 +77,98 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      
+
+      {/* Featured Auctions */}
+      <section className="pt-16 pb-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Featured Auctions
+            </h2>
+            <p className="text-xl text-gray-600">
+              Don't miss out on these exciting auction opportunities
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-200">
+                <div className="h-48 bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500">Auction Image {item}</span>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Sample Auction Item {item}
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    This is a sample auction item description. Real auction data will be loaded from the backend.
+                  </p>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm text-gray-500">Current Bid</span>
+                    <span className="text-lg font-bold text-primary-600">$1,{item}50</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm text-gray-500">Time Left</span>
+                    <span className="text-sm font-medium text-secondary-600">2d 14h 30m</span>
+                  </div>
+                  <button 
+                    onClick={() => handlePlaceBid(item)}
+                    className="w-full bg-primary-600 text-white py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
+                  >
+                    Place Bid
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-12">
+            <Link
+              to="/auctions"
+              className="bg-primary-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
+            >
+              View All Auctions
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Get Started in 4 Steps
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Register, verify, deposit, and participate — it’s simple and fast
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">1</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Register</h3>
+              <p className="text-gray-600">Create your Nexus account with your email and a secure password.</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">2</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Verify</h3>
+              <p className="text-gray-600">Verify your email to unlock protected actions and profile features.</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">3</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Deposit</h3>
+              <p className="text-gray-600">View bank details, use your reference, and upload your receipt for verification.</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">4</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Participate</h3>
+              <p className="text-gray-600">Register for each auction and start bidding with confidence.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -125,62 +217,6 @@ const Home: React.FC = () => {
                 All items are thoroughly verified to ensure authenticity and quality
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Auctions */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Featured Auctions
-            </h2>
-            <p className="text-xl text-gray-600">
-              Don't miss out on these exciting auction opportunities
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Sample auction cards */}
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-200">
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">Auction Image {item}</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Sample Auction Item {item}
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    This is a sample auction item description. Real auction data will be loaded from the backend.
-                  </p>
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm text-gray-500">Current Bid</span>
-                    <span className="text-lg font-bold text-primary-600">$1,{item}50</span>
-                  </div>
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm text-gray-500">Time Left</span>
-                    <span className="text-sm font-medium text-secondary-600">2d 14h 30m</span>
-                  </div>
-                  <button 
-                    onClick={() => handlePlaceBid(item)}
-                    className="w-full bg-primary-600 text-white py-2 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
-                  >
-                    Place Bid
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-12">
-            <Link
-              to="/auctions"
-              className="bg-primary-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors duration-200"
-            >
-              View All Auctions
-            </Link>
           </div>
         </div>
       </section>

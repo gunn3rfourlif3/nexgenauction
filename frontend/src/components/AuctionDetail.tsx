@@ -14,6 +14,7 @@ import {
   DollarSign,
   Zap
 } from 'lucide-react';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface Bid {
   bidder: {
@@ -103,6 +104,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
   loading = false
 }) => {
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
   
   // Initialize hooks first (before any early returns)
   const [bidAmount, setBidAmount] = useState(
@@ -268,13 +270,13 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
               <div>
                 <p className="text-sm text-gray-600">Current Bid</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${auction.currentBid.toLocaleString()}
+                  {formatCurrency(auction.currentBid)}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Starting Price</p>
                 <p className="text-lg font-medium text-gray-700">
-                  ${auction.startingPrice.toLocaleString()}
+                  {formatCurrency(auction.startingPrice)}
                 </p>
               </div>
             </div>
@@ -283,7 +285,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
               <div className="mb-4">
                 <p className="text-sm text-gray-600">Reserve Price</p>
                 <p className="text-lg font-medium text-gray-700">
-                  ${auction.reservePrice.toLocaleString()}
+                  {auction.reservePrice !== undefined ? formatCurrency(auction.reservePrice) : ''}
                   {auction.currentBid >= auction.reservePrice && (
                     <span className="ml-2 text-green-600 text-sm">✓ Met</span>
                   )}
@@ -344,7 +346,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
                     </button>
                   </div>
                   <p className="text-sm text-gray-600">
-                    Minimum bid: ${(auction.currentBid + auction.bidIncrement).toLocaleString()}
+                    Minimum bid: {formatCurrency(auction.currentBid + auction.bidIncrement)}
                   </p>
                 </div>
               </div>
@@ -492,7 +494,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
                           </p>
                         </div>
                         <p className="text-lg font-bold text-green-600">
-                          ${bid.amount.toLocaleString()}
+                          {formatCurrency(bid.amount)}
                         </p>
                       </div>
                     ))}
@@ -510,7 +512,7 @@ const AuctionDetail: React.FC<AuctionDetailProps> = ({
                 <div className="space-y-4">
                   <div>
                     <p className="font-medium">Shipping Cost</p>
-                    <p className="text-gray-700">${auction.shippingInfo.cost}</p>
+                    <p className="text-gray-700">{formatCurrency(auction.shippingInfo.cost)}</p>
                   </div>
                   <div>
                     <p className="font-medium">Available Methods</p>

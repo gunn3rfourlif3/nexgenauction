@@ -12,6 +12,7 @@ interface ConfirmationModalProps {
   type?: 'danger' | 'warning' | 'info';
   icon?: 'delete' | 'edit' | 'duplicate' | 'warning';
   loading?: boolean;
+  children?: React.ReactNode;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
