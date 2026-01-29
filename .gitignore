@@ -102,3 +102,4 @@ tools/certs/
 *.pfx
 *.crt
 *.key
+frontend_build/
