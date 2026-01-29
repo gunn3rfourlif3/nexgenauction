@@ -1,4 +1,0 @@
-/*!
- * Flickity imagesLoaded v2.0.0
- * enables imagesLoaded option for Flickity
- */ !function(e,t){"function"==typeof define&&define.amd?define(["flickity/js/index","imagesloaded/imagesloaded"],function(i,o){return t(e,i,o)}):"object"==typeof module&&module.exports?module.exports=t(e,require("flickity"),require("imagesloaded")):e.Flickity=t(e,e.Flickity,e.imagesLoaded)}(window,function e(t,i,o){"use strict";i.createMethods.push("_createImagesLoaded");var a=i.prototype;return a._createImagesLoaded=function(){this.on("activate",this.imagesLoaded)},a.imagesLoaded=function(){if(this.options.imagesLoaded){var e=this;o(this.slider).on("progress",function t(i,o){var a=e.getParentCell(o.img);e.cellSizeChange(a&&a.element),e.options.freeScroll||e.positionSliderAtSelected()})}},i});
