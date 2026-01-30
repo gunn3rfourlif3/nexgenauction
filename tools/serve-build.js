@@ -7,10 +7,12 @@ const path = require('path');
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3100;
 const BUILD_DIR = process.env.BUILD_DIR || path.resolve(__dirname, '..', 'frontend_build');
 const USE_HTTPS = String(process.env.HTTPS || '').toLowerCase() === 'true';
+const MIRROR_PROD = String(process.env.MIRROR_PROD || '').toLowerCase() === 'true';
 const KEY_PATH = process.env.KEY_PATH || '';
 const CERT_PATH = process.env.CERT_PATH || '';
 const PFX_PATH = process.env.PFX_PATH || '';
 const PFX_PASS = process.env.PFX_PASS || '';
+const DISABLE_ASSISTANT_WIDGET = String(process.env.DISABLE_ASSISTANT_WIDGET || 'true').toLowerCase() === 'true';
 
 function sendFile(res, filePath, contentType) {
   fs.readFile(filePath, 'utf8', (err, data) => {
@@ -20,7 +22,7 @@ function sendFile(res, filePath, contentType) {
       return;
     }
     let payload = data;
-    if (contentType === 'text/html' && /index\.html$/i.test(filePath)) {
+    if (!DISABLE_ASSISTANT_WIDGET && !MIRROR_PROD && contentType === 'text/html' && /index\.html$/i.test(filePath)) {
       payload = injectAssistantWidget(payload);
     }
     res.writeHead(200, { 'Content-Type': contentType });
@@ -89,6 +91,9 @@ function proxyRequest(req, res) {
 }
 
 function requestHandler(req, res) {
+  if (MIRROR_PROD) {
+    return proxyRequest(req, res);
+  }
   let reqPath = req.url.split('?')[0];
   if (reqPath === '/') reqPath = '/index.html';
 

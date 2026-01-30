@@ -125,13 +125,22 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Session configuration
+const crypto = require('crypto');
+const sessionSecret = (() => {
+  const envSecret = process.env.SESSION_SECRET || process.env.JWT_SECRET || '';
+  if (envSecret) return envSecret;
+  if ((process.env.NODE_ENV || 'development') === 'production') {
+    throw new Error('SESSION_SECRET is required in production');
+  }
+  return crypto.randomBytes(32).toString('hex');
+})();
 app.use(session({
-  secret: process.env.JWT_SECRET || 'nexgenauction_session_secret',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 

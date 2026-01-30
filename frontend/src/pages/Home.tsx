@@ -79,8 +79,43 @@ const Home: React.FC = () => {
 
       
 
+      <section className="pt-20 pb-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Get Started in 4 Steps
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Register, verify, deposit, and participate — it’s simple and fast
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">1</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Register</h3>
+              <p className="text-gray-600">Create your Nexus account with your email and a secure password.</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">2</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Verify</h3>
+              <p className="text-gray-600">Verify your email to unlock protected actions and profile features.</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">3</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Deposit</h3>
+              <p className="text-gray-600">View bank details, use your reference, and upload your receipt for verification.</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">4</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Participate</h3>
+              <p className="text-gray-600">Register for each auction and start bidding with confidence.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Featured Auctions */}
-      <section className="pt-16 pb-24">
+      <section className="pt-16 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -134,43 +169,8 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Get Started in 4 Steps
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Register, verify, deposit, and participate — it’s simple and fast
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">1</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Register</h3>
-              <p className="text-gray-600">Create your Nexus account with your email and a secure password.</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">2</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Verify</h3>
-              <p className="text-gray-600">Verify your email to unlock protected actions and profile features.</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">3</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Deposit</h3>
-              <p className="text-gray-600">View bank details, use your reference, and upload your receipt for verification.</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold">4</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Participate</h3>
-              <p className="text-gray-600">Register for each auction and start bidding with confidence.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Features Section */}
-      <section className="py-16 bg-gray-50">
+      <section className="pt-16 pb-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">

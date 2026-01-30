@@ -41,7 +41,6 @@ function App() {
         <div className="min-h-screen bg-white text-black flex flex-col">
           <Header />
           <main className="flex-grow">
-            <ChatAssistant />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auctions" element={<AuctionCatalog />} />
@@ -67,6 +66,7 @@ function App() {
             </Routes>
           </main>
           <Footer />
+          <ChatAssistant />
         </div>
       </Router>
         </CurrencyProvider>

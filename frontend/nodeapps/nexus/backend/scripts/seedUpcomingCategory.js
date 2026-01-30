@@ -10,7 +10,10 @@ const connectDB = async () => {
   try {
     const uri = (process.env.MONGODB_URI && process.env.MONGODB_URI.trim())
       ? process.env.MONGODB_URI.trim()
-      : 'mongodb://localhost:27017/nexgenauction';
+      : '';
+    if (!uri) {
+      throw new Error('MONGODB_URI is required. Set it in environment before running this script.');
+    }
 
     await mongoose.connect(uri, {
       useNewUrlParser: true,
